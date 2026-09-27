@@ -8,23 +8,21 @@ export default function SoList() {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
 
-  // Modal State untuk Detail SO
   const [selectedSoData, setSelectedSoData] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Fungsi helper untuk menyeragamkan format tanggal
   const formatDate = (dateString) => {
     if (!dateString) return "-";
     const isoMatch = dateString.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (isoMatch) {
       const [_, year, month, day] = isoMatch;
       const dateObj = new Date(year, month - 1, day);
-      return dateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+      return dateObj.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
     }
     const parsed = new Date(dateString);
     if (!isNaN(parsed)) {
-      return parsed.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+      return parsed.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
     }
     return dateString;
   };
@@ -58,7 +56,6 @@ export default function SoList() {
     return () => unsubscribe();
   }, []);
 
-  // Filter Daftar SO Berdasarkan Pencarian
   const filteredSoKeys = Object.keys(soGroupData).filter(soKey => {
     const group = soGroupData[soKey];
     const term = searchTerm.toUpperCase().trim();
@@ -71,7 +68,6 @@ export default function SoList() {
     );
   }).reverse();
 
-  // Fungsi Buka Modal Detail SO
   const handleOpenModal = (group) => {
     const sizeGroup = {};
     let grandTotalPcs = 0;
@@ -102,21 +98,20 @@ export default function SoList() {
     setIsModalOpen(true);
   };
 
-  // Fungsi Salin Ringkasan ke Clipboard
   const handleCopySummary = () => {
     if (!selectedSoData) return;
     
-    let text = `📦 REKAPITULASI SALES ORDER\n`;
-    text += `No. SO: ${selectedSoData.so}\n`;
-    text += `Artikel: ${selectedSoData.artikel}\n`;
-    text += `Destinasi: ${selectedSoData.destination}\n`;
-    text += `Lokasi: ${selectedSoData.lokasi}\n`;
-    text += `Total: ${selectedSoData.totalCtn} Karton (${selectedSoData.grandTotalPcs} Pcs)\n\n`;
-    text += `Rincian Size:\n`;
+    let text = `📦 SALES ORDER SUMMARY\n`;
+    text += `SO No.: ${selectedSoData.so}\n`;
+    text += `Article: ${selectedSoData.artikel}\n`;
+    text += `Destination: ${selectedSoData.destination}\n`;
+    text += `Location: ${selectedSoData.lokasi}\n`;
+    text += `Total: ${selectedSoData.totalCtn} Cartons (${selectedSoData.grandTotalPcs} Pcs)\n\n`;
+    text += `Size Details:\n`;
 
     Object.keys(selectedSoData.sizeGroup).sort().forEach(sz => {
       const s = selectedSoData.sizeGroup[sz];
-      text += `- Size ${sz}: ${s.cartons.length} Ctn (${s.totalQty} Pcs) | No: ${s.cartons.join(', ')}\n`;
+      text += `- Size ${sz}: ${s.cartons.length} Ctn (${s.totalQty} Pcs) | No.: ${s.cartons.join(', ')}\n`;
     });
 
     navigator.clipboard.writeText(text);
@@ -127,11 +122,11 @@ export default function SoList() {
   return (
     <div className="max-w-7xl mx-auto flex flex-col h-full relative">
       
-      {/* Header & Pencarian */}
+      {/* Header & Search */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
         <div>
-          <h2 className="text-xl font-extrabold text-textMain">Master Sales Order (SO) List</h2>
-          <p className="text-xs font-semibold text-textMuted mt-0.5">Rekapitulasi seluruh data inbound yang tersimpan di database.</p>
+          <h2 className="text-xl font-extrabold text-textMain">Sales Order (SO) Master List</h2>
+          <p className="text-xs font-semibold text-textMuted mt-0.5">Summary of all inbound data stored in the database.</p>
         </div>
         <div className="relative w-full md:w-80">
           <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
@@ -140,37 +135,37 @@ export default function SoList() {
           <input
             type="text"
             className="w-full pl-10 pr-4 py-2.5 border border-borderLight rounded-xl text-xs font-bold bg-surface text-textMain outline-none focus:border-primary focus:ring-4 focus:ring-indigo-50 shadow-sm uppercase"
-            placeholder="Cari SO, Artikel, Destinasi..."
+            placeholder="Search SO, Article, Destination..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
           />
         </div>
       </div>
 
-      {/* Tabel Data Enterprise */}
+      {/* Enterprise Data Table */}
       <div className="flex-1 bg-surface border border-borderLight rounded-2xl shadow-sm overflow-hidden flex flex-col">
         <div className="overflow-x-auto flex-1">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-bgBody border-b border-borderLight text-[11px] font-extrabold text-textMuted uppercase tracking-wider">
-                <th className="py-4 px-6">No. SO</th>
-                <th className="py-4 px-6">Tanggal</th>
-                <th className="py-4 px-6">Artikel / Style</th>
-                <th className="py-4 px-6">Destinasi</th>
-                <th className="py-4 px-6">Lokasi Gudang</th>
-                <th className="py-4 px-6 text-center">Total Karton</th>
+                <th className="py-4 px-6">SO No.</th>
+                <th className="py-4 px-6">Date</th>
+                <th className="py-4 px-6">Article / Style</th>
+                <th className="py-4 px-6">Destination</th>
+                <th className="py-4 px-6">Warehouse Location</th>
+                <th className="py-4 px-6 text-center">Total Cartons</th>
                 <th className="py-4 px-6 text-center">Total Pcs</th>
-                <th className="py-4 px-6 text-right">Aksi</th>
+                <th className="py-4 px-6 text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-borderLight text-xs font-semibold text-textMain">
               {loading ? (
                 <tr>
-                  <td colSpan="8" className="text-center py-12 text-textMuted font-bold">Memuat Data dari Database...</td>
+                  <td colSpan="8" className="text-center py-12 text-textMuted font-bold">Loading Data from Database...</td>
                 </tr>
               ) : filteredSoKeys.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="text-center py-12 text-textMuted font-bold">Tidak ada data Sales Order ditemukan.</td>
+                  <td colSpan="8" className="text-center py-12 text-textMuted font-bold">No Sales Order data found.</td>
                 </tr>
               ) : (
                 filteredSoKeys.map((soKey) => {
@@ -221,15 +216,15 @@ export default function SoList() {
         </div>
       </div>
 
-      {/* MODAL DETAIL SO BERBASIS TABEL MINI & QUICK ACTIONS */}
+      {/* SO Detail Modal */}
       {isModalOpen && selectedSoData && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex justify-center items-center p-4">
           <div className="bg-surface w-full max-w-2xl rounded-2xl p-6 shadow-2xl border border-borderLight animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
             
-            {/* Header Modal */}
+            {/* Modal Header */}
             <div className="flex justify-between items-center pb-4 border-b border-borderLight mb-5">
               <div>
-                <span className="text-[10px] font-extrabold bg-indigo-50 text-primary px-2 py-0.5 rounded uppercase">Detail Sales Order</span>
+                <span className="text-[10px] font-extrabold bg-indigo-50 text-primary px-2 py-0.5 rounded uppercase">Sales Order Detail</span>
                 <h3 className="text-xl font-black text-textMain mt-1">{selectedSoData.so}</h3>
               </div>
               <button 
@@ -240,28 +235,28 @@ export default function SoList() {
               </button>
             </div>
 
-            {/* Kotak Ringkasan Informasi */}
+            {/* Information Summary Box */}
             <div className="bg-bgBody p-4 rounded-xl border border-borderLight mb-5 grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <div className="text-[10px] font-bold text-textMuted uppercase">Artikel</div>
+                <div className="text-[10px] font-bold text-textMuted uppercase">Article</div>
                 <div className="text-xs font-extrabold text-textMain mt-0.5 truncate">{selectedSoData.artikel}</div>
               </div>
               <div>
-                <div className="text-[10px] font-bold text-textMuted uppercase">Lokasi Gudang</div>
+                <div className="text-[10px] font-bold text-textMuted uppercase">Warehouse Location</div>
                 <div className="text-xs font-extrabold text-emerald-600 mt-0.5">📍 {selectedSoData.lokasi}</div>
               </div>
               <div>
-                <div className="text-[10px] font-bold text-textMuted uppercase">Destinasi</div>
+                <div className="text-[10px] font-bold text-textMuted uppercase">Destination</div>
                 <div className="text-xs font-extrabold text-primary mt-0.5">🌍 {selectedSoData.destination}</div>
               </div>
               <div>
-                <div className="text-[10px] font-bold text-textMuted uppercase">Total Muatan</div>
+                <div className="text-[10px] font-bold text-textMuted uppercase">Total Quantity</div>
                 <div className="text-xs font-extrabold text-slate-800 mt-0.5">{selectedSoData.totalCtn} Ctn ({selectedSoData.grandTotalPcs} Pcs)</div>
               </div>
             </div>
 
-            {/* Tabel Mini Rincian Ukuran */}
-            <div className="text-xs font-extrabold text-textMain mb-2">Rincian Ukuran & Nomor Karton:</div>
+            {/* Mini Table Size Details */}
+            <div className="text-xs font-extrabold text-textMain mb-2">Size & Carton Number Details:</div>
             <div className="flex-1 overflow-y-auto border border-borderLight rounded-xl mb-6">
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -269,7 +264,7 @@ export default function SoList() {
                     <th className="py-2.5 px-4">Size</th>
                     <th className="py-2.5 px-4 text-center">Ctn Qty</th>
                     <th className="py-2.5 px-4 text-center">Total Pcs</th>
-                    <th className="py-2.5 px-4">Nomor Karton</th>
+                    <th className="py-2.5 px-4">Carton Numbers</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-borderLight text-xs font-semibold">
@@ -290,21 +285,21 @@ export default function SoList() {
               </table>
             </div>
 
-            {/* Footer Modal dengan Tombol Aksi Cepat */}
+            {/* Modal Footer with Quick Actions */}
             <div className="flex justify-between items-center pt-2">
               <button 
                 onClick={handleCopySummary}
                 className="inline-flex items-center gap-2 px-4 py-2.5 bg-bgBody border border-borderLight rounded-xl text-xs font-bold text-textMain hover:bg-slate-100 transition-colors"
               >
                 {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} className="text-textMuted" />}
-                {copied ? 'Berhasil Disalin!' : 'Salin Ringkasan SO'}
+                {copied ? 'Copied Successfully!' : 'Copy SO Summary'}
               </button>
 
               <button 
                 onClick={() => setIsModalOpen(false)}
                 className="btn-primary py-2.5 px-6 text-xs"
               >
-                Tutup
+                Close
               </button>
             </div>
 
