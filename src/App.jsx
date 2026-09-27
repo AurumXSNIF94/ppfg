@@ -7,6 +7,8 @@ import Dashboard from './pages/Dashboard';
 import EntryForm from './pages/EntryForm';
 import StockList from './pages/StockList';
 import SoList from './pages/SoList';
+import Planning from './pages/Planning';
+import ExportPage from './pages/Export';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -29,7 +31,6 @@ export default function App() {
     );
   }
 
-  // Jika belum login, tampilkan Halaman Login Google
   if (!user) {
     return <Login />;
   }
@@ -73,6 +74,12 @@ export default function App() {
           </div>
           <div className={`absolute inset-0 p-8 overflow-hidden transition-opacity duration-300 ${activeTab === 'solist' ? 'opacity-100 z-10 flex flex-col' : 'opacity-0 z-0 hidden'}`}>
             <SoList />
+          </div>
+          <div className={`absolute inset-0 p-8 overflow-hidden transition-opacity duration-300 ${activeTab === 'planning' ? 'opacity-100 z-10 flex flex-col' : 'opacity-0 z-0 hidden'}`}>
+            <Planning />
+          </div>
+          <div className={`absolute inset-0 p-8 overflow-hidden transition-opacity duration-300 ${activeTab === 'export' ? 'opacity-100 z-10 flex flex-col' : 'opacity-0 z-0 hidden'}`}>
+            <ExportPage />
           </div>
         </div>
 
