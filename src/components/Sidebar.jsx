@@ -1,4 +1,4 @@
-import { LayoutDashboard, Inbox, Package, FileSpreadsheet, ClipboardList, Download, LogOut } from 'lucide-react';
+import { LayoutDashboard, Inbox, Package, FileSpreadsheet, ClipboardList, Download, History, LogOut } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '../config/firebase';
 
@@ -8,8 +8,9 @@ export default function Sidebar({ activeTab, setActiveTab }) {
     { id: 'entry', icon: Inbox, label: 'Entry Form' },
     { id: 'stock', icon: Package, label: 'Stock List' },
     { id: 'solist', icon: FileSpreadsheet, label: 'SO Master List' },
-    { id: 'planning', icon: ClipboardList, label: 'SO Planning' }, // Menu Planning Terpisah
-    { id: 'export', icon: Download, label: 'Export & Outbound' },   // Menu Export Terpisah
+    { id: 'planning', icon: ClipboardList, label: 'SO Planning' },
+    { id: 'export', icon: Download, label: 'Export & Outbound' },
+    { id: 'exporthistory', icon: History, label: 'Export History' }, // Menu Baru Riwayat Ekspor
   ];
 
   const handleLogout = async () => {
@@ -26,7 +27,7 @@ export default function Sidebar({ activeTab, setActiveTab }) {
         WMS
       </div>
       
-      <div className="flex flex-col gap-5 w-full items-center flex-1 overflow-y-auto pr-1">
+      <div className="flex flex-col gap-4 w-full items-center flex-1 overflow-y-auto pr-1">
         {menuItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
