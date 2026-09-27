@@ -1,206 +1,82 @@
 import { useState, useEffect } from 'react';
-import { ref, onValue, update, remove } from 'firebase/database';
-import { db } from '../config/firebase';
-import { Search, Package, MapPin, Globe, Trash2, Edit3, X, Check } from 'lucide-react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from './config/firebase';
+import Login from './pages/Login';
+import Sidebar from './components/Sidebar';
+import Dashboard from './pages/Dashboard';
+import EntryForm from './pages/EntryForm';
+import StockList from './pages/StockList';
+import SoList from './pages/SoList';
 
-export default function StockList() {
-  const [rawData, setRawData] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(true);
-
-  // Edit Modal State
-  const [editingItem, setEditingItem] = useState(null);
-  const [editQty, setEditQty] = useState('');
-  const [editLoc, setEditLoc] = useState('');
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [loadingAuth, setLoadingAuth] = useState(true);
+  const [activeTab, setActiveTab] = useState('dashboard');
 
   useEffect(() => {
-    const kartonRef = ref(db, 'stok_inbound_wh');
-    const unsubscribe = onValue(kartonRef, (snapshot) => {
-      const data = [];
-      snapshot.forEach((child) => {
-        data.push({ id: child.key, ...child.val() });
-      });
-      setRawData(data.reverse());
-      setLoading(false);
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setLoadingAuth(false);
     });
-
     return () => unsubscribe();
   }, []);
 
-  const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this carton record?")) {
-      try {
-        await remove(ref(db, `stok_inbound_wh/${id}`));
-      } catch (err) {
-        alert("Failed to delete: " + err.message);
-      }
-    }
-  };
-
-  const handleOpenEdit = (item) => {
-    setEditingItem(item);
-    setEditQty(item.isi_karton || '');
-    setEditLoc(item.lokasi || '');
-  };
-
-  const handleSaveEdit = async () => {
-    if (!editingItem) return;
-    try {
-      await update(ref(db, `stok_inbound_wh/${editingItem.id}`), {
-        isi_karton: parseInt(editQty) || 0,
-        lokasi: editLoc.toUpperCase()
-      });
-      setEditingItem(null);
-      alert("Successfully updated!");
-    } catch (err) {
-      alert("Failed to update: " + err.message);
-    }
-  };
-
-  const filteredData = rawData.filter(d => {
-    const term = searchTerm.toUpperCase().trim();
-    if (!term) return true;
+  if (loadingAuth) {
     return (
-      (d.so_number || "").toUpperCase().includes(term) ||
-      (d.artikel || "").toUpperCase().includes(term) ||
-      (d.destination || "").toUpperCase().includes(term) ||
-      (d.lokasi || "").toUpperCase().includes(term) ||
-      (d.nomor_karton || "").toUpperCase().includes(term)
+      <div className="flex h-screen w-screen items-center justify-center bg-bgBody text-textMuted font-bold">
+        Loading WMS Application...
+      </div>
     );
-  });
+  }
+
+  // Jika belum login, tampilkan Halaman Login Google
+  if (!user) {
+    return <Login />;
+  }
+
+  const userName = user.displayName || user.email.split('@')[0];
 
   return (
-    <div className="max-w-7xl mx-auto flex flex-col h-full relative">
+    <div className="flex h-screen bg-bgBody overflow-hidden font-sans text-textMain">
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
       
-      {/* Search Header */}
-      <div className="sticky top-0 z-10 bg-bgBody/80 backdrop-blur-md pb-6">
-        <div className="relative">
-          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-textMuted" />
+      <main className="flex-1 flex flex-col min-w-0 bg-bgBody shadow-[inset_5px_0_25px_rgba(0,0,0,0.02)] rounded-tl-3xl rounded-bl-3xl my-2 mr-2 overflow-hidden border border-borderLight">
+        
+        {/* HEADER */}
+        <header className="px-8 py-6 flex justify-between items-center bg-surface border-b border-borderLight z-10">
+          <div>
+            <h1 className="text-2xl font-extrabold text-textMain tracking-tight">
+              Welcome back, <span className="text-primary">{userName}</span>
+            </h1>
+            <p className="text-sm font-semibold text-textMuted mt-1">Warehouse Inbound Management System</p>
           </div>
-          <input
-            type="text"
-            className="w-full pl-12 pr-4 py-4 border border-borderLight rounded-xl text-sm font-bold bg-surface text-textMain outline-none focus:border-primary focus:ring-4 focus:ring-indigo-50 shadow-sm uppercase"
-            placeholder="Search by SO Number, Article, Destination, or Location..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-      </div>
-
-      {/* Grid List */}
-      <div className="flex-1 overflow-y-auto pb-10">
-        {loading ? (
-          <div className="text-center mt-20 text-textMuted font-bold">Loading Stock Data...</div>
-        ) : filteredData.length === 0 ? (
-          <div className="text-center mt-20 text-textMuted font-bold">No stock records found.</div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredData.map((d) => (
-              <div key={d.id} className="bg-surface border border-borderLight rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-200 group flex flex-col justify-between">
-                <div>
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="font-extrabold text-lg text-textMain group-hover:text-primary transition-colors">
-                      {d.so_number}
-                    </span>
-                    <span className={`text-[10px] font-black px-2.5 py-1 rounded-md uppercase tracking-wider ${
-                      d.jenis === 'MIX' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
-                    }`}>
-                      {d.jenis}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center bg-bgBody border border-borderLight p-3 rounded-lg mb-4">
-                    <div className="text-xl font-black text-primary">{d.size}</div>
-                    <div className="text-xs font-extrabold text-textMuted">QTY: {d.isi_karton || '-'} PCS</div>
-                  </div>
-
-                  <div className="space-y-2 mb-4 text-xs">
-                    <div className="flex items-center justify-between border-b border-dashed border-borderLight pb-1">
-                      <span className="font-semibold text-textMuted">Carton No:</span>
-                      <span className="font-extrabold text-textMain">{d.nomor_karton}</span>
-                    </div>
-                    <div className="flex items-center justify-between border-b border-dashed border-borderLight pb-1">
-                      <span className="font-semibold text-textMuted">Article:</span>
-                      <span className="font-extrabold text-textMain">{d.artikel}</span>
-                    </div>
-                    <div className="flex items-center justify-between border-b border-dashed border-borderLight pb-1">
-                      <span className="font-semibold text-textMuted">Destination:</span>
-                      <span className="font-extrabold text-primary">{d.destination}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-textMuted">Location:</span>
-                      <span className="font-extrabold text-emerald-600">{d.lokasi}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Card Footer & Action Buttons */}
-                <div className="pt-3 border-t border-dashed border-borderLight flex justify-between items-center">
-                  <span className="text-[10px] font-bold text-textMuted">📅 {d.tanggal}</span>
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => handleOpenEdit(d)}
-                      className="p-2 bg-indigo-50 text-primary rounded-lg hover:bg-primary hover:text-white transition-colors"
-                      title="Edit Record"
-                    >
-                      <Edit3 size={14} />
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(d.id)}
-                      className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-colors"
-                      title="Delete Record"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div className="flex items-center gap-4">
+            <button className="w-10 h-10 rounded-full border border-borderLight flex justify-center items-center hover:shadow-soft transition-shadow bg-surface">
+              🌙
+            </button>
+            <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-primary/20 cursor-pointer">
+              <img src={user.photoURL || `https://ui-avatars.com/api/?name=${userName}&background=4F46E5&color=fff`} alt="Profile" className="w-full h-full object-cover"/>
+            </div>
           </div>
-        )}
-      </div>
+        </header>
 
-      {/* EDIT MODAL */}
-      {editingItem && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex justify-center items-center p-4">
-          <div className="bg-surface w-full max-w-md rounded-2xl p-6 shadow-2xl border border-borderLight">
-            <div className="flex justify-between items-center pb-4 border-b border-borderLight mb-4">
-              <h3 className="text-lg font-extrabold text-primary">Edit Carton Record</h3>
-              <button onClick={() => setEditingItem(null)} className="w-8 h-8 rounded-full bg-bgBody flex items-center justify-center">
-                <X size={18} />
-              </button>
-            </div>
-            
-            <div className="space-y-4 mb-6">
-              <div>
-                <label className="form-label">Quantity (Pcs)</label>
-                <input 
-                  type="number" 
-                  className="form-input" 
-                  value={editQty} 
-                  onChange={(e) => setEditQty(e.target.value)} 
-                />
-              </div>
-              <div>
-                <label className="form-label">Warehouse Location</label>
-                <input 
-                  type="text" 
-                  className="form-input uppercase" 
-                  value={editLoc} 
-                  onChange={(e) => setEditLoc(e.target.value.toUpperCase())} 
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3">
-              <button onClick={() => setEditingItem(null)} className="px-5 py-2.5 bg-bgBody rounded-xl font-bold text-xs">Cancel</button>
-              <button onClick={handleSaveEdit} className="btn-primary py-2.5 px-6 text-xs">Save Changes</button>
-            </div>
+        {/* TAB CONTENT AREA */}
+        <div className="flex-1 overflow-hidden relative flex flex-col">
+          <div className={`absolute inset-0 p-8 overflow-y-auto transition-opacity duration-300 ${activeTab === 'dashboard' ? 'opacity-100 z-10' : 'opacity-0 z-0 hidden'}`}>
+            <Dashboard />
+          </div>
+          <div className={`absolute inset-0 p-8 overflow-y-auto transition-opacity duration-300 ${activeTab === 'entry' ? 'opacity-100 z-10' : 'opacity-0 z-0 hidden'}`}>
+            <EntryForm />
+          </div>
+          <div className={`absolute inset-0 p-8 overflow-hidden transition-opacity duration-300 ${activeTab === 'stock' ? 'opacity-100 z-10 flex flex-col' : 'opacity-0 z-0 hidden'}`}>
+            <StockList />
+          </div>
+          <div className={`absolute inset-0 p-8 overflow-hidden transition-opacity duration-300 ${activeTab === 'solist' ? 'opacity-100 z-10 flex flex-col' : 'opacity-0 z-0 hidden'}`}>
+            <SoList />
           </div>
         </div>
-      )}
 
+      </main>
     </div>
   );
 }
