@@ -50,11 +50,12 @@ export default function Dashboard() {
       const destMap = {};
       const soGroup = {};
       const inboundMap = {};
+      const rawList = [];
 
       inboundSnapshotData.forEach((child) => {
         const data = child.val();
         data.id = child.key;
-        rawDataStorage.push(data);
+        rawList.push(data);
 
         totalQty += parseInt(data.isi_karton) || 0;
         if (data.so_number) uniqueSoSet.add(data.so_number);
@@ -70,10 +71,9 @@ export default function Dashboard() {
         }
         soGroup[so].items.push(data);
 
-        const sz = (data.size || "-").toUpperCase().trim();
-        const key = `${so}_${sz}`;
-        if (!inboundMap[key]) inboundMap[key] = 0;
-        inboundMap[key] += parseInt(data.isi_karton) || 0;
+        const soKey = so.toUpperCase().trim();
+        if (!inboundMap[soKey]) inboundMap[soKey] = 0;
+        inboundMap[soKey] += parseInt(data.isi_karton) || 0;
       });
 
       let completedPlans = 0;
@@ -81,16 +81,16 @@ export default function Dashboard() {
 
       planningSnapshotData.forEach((plan) => {
         const p = plan.val();
-        const key = `${(p.so_number || "").toUpperCase().trim()}_${(p.size || "-").toUpperCase().trim()}`;
-        const actual = inboundMap[key] || 0;
+        const soKey = (p.so_number || "").toUpperCase().trim();
+        const actual = inboundMap[soKey] || 0;
         if (actual >= (p.target_qty || 0)) {
           completedPlans++;
         }
       });
 
-      setRawDataStorage(inboundSnapshotData);
+      setRawDataStorage(rawList);
       setStats({
-        totalCtn: inboundSnapshotData.length,
+        totalCtn: rawList.length,
         uniqueSo: uniqueSoSet.size,
         totalQty: totalQty,
         uniqueLoc: uniqueLocSet.size,
@@ -127,7 +127,7 @@ export default function Dashboard() {
   }, []);
 
   const handleOpenModal = (soNumber) => {
-    const items = rawDataStorage.filter(d => d.val().so_number === soNumber).map(c => ({ id: c.key, ...c.val() }));
+    const items = rawDataStorage.filter(d => d.so_number === soNumber);
     if (items.length === 0) return;
 
     const first = items[0];
