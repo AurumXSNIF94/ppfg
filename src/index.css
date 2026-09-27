@@ -1,24 +1,44 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #4F46E5;
+  --color-primary-hover: #4338CA;
+  --color-secondary: #10B981;
+  --color-surface: #FFFFFF;
+  --color-sidebar: #141736;
+  --color-sidebar-hover: rgba(255,255,255,0.1);
+  --color-bgBody: #F4F7FE;
+  --color-textMain: #1E293B;
+  --color-textMuted: #64748B;
+  --color-borderLight: #E2E8F0;
+
+  --font-sans: "Plus Jakarta Sans", sans-serif;
+
+  --shadow-soft: 0 4px 15px rgba(0, 0, 0, 0.03);
+  --shadow-float: 0 10px 25px rgba(15, 23, 42, 0.05);
+  --shadow-glow: 0 4px 15px rgba(79, 70, 229, 0.4);
+}
 
 @layer base {
   body {
     @apply bg-bgBody text-textMain font-sans antialiased m-0 p-0 overflow-hidden;
   }
-  
+
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
+
   ::-webkit-scrollbar-track {
     background: transparent;
   }
+
   ::-webkit-scrollbar-thumb {
     @apply bg-slate-300 rounded-full;
   }
+
   ::-webkit-scrollbar-thumb:hover {
     @apply bg-slate-400;
   }
@@ -28,9 +48,11 @@
   .form-input {
     @apply w-full px-4 py-3 border border-borderLight rounded-lg text-sm font-bold bg-slate-50 text-textMain outline-none transition-all duration-200 focus:border-primary focus:bg-surface focus:ring-4 focus:ring-indigo-50;
   }
+
   .form-label {
     @apply block text-xs font-bold text-textMuted mb-1.5;
   }
+
   .btn-primary {
     @apply bg-primary hover:bg-primary-hover text-white px-5 py-3 rounded-lg font-bold text-sm transition-all duration-200 shadow-[0_4px_12px_rgba(79,70,229,0.25)] hover:shadow-[0_6px_15px_rgba(79,70,229,0.35)] hover:-translate-y-0.5;
   }
