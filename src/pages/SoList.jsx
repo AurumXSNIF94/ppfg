@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ref, onValue } from 'firebase/database';
 import { db } from '../config/firebase';
-import { Search, MapPin, Globe, X, FileText, ChevronRight } from 'lucide-react';
+import { Search, MapPin, Globe, X, FileText, ChevronRight, Copy, Check } from 'lucide-react';
 
 export default function SoList() {
   const [soGroupData, setSoGroupData] = useState({});
@@ -11,18 +11,17 @@ export default function SoList() {
   // Modal State untuk Detail SO
   const [selectedSoData, setSelectedSoData] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   // Fungsi helper untuk menyeragamkan format tanggal
   const formatDate = (dateString) => {
     if (!dateString) return "-";
-    // Jika format sudah YYYY-MM-DD
     const isoMatch = dateString.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (isoMatch) {
       const [_, year, month, day] = isoMatch;
       const dateObj = new Date(year, month - 1, day);
       return dateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
     }
-    // Jika format teks biasa, coba parsing dengan Date object
     const parsed = new Date(dateString);
     if (!isNaN(parsed)) {
       return parsed.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -45,7 +44,7 @@ export default function SoList() {
             artikel: d.artikel || "-",
             destination: d.destination || "-",
             lokasi: d.lokasi || "-",
-            tanggal: formatDate(d.tanggal), // Diseragamkan di sini
+            tanggal: formatDate(d.tanggal),
             items: []
           };
         }
@@ -59,7 +58,7 @@ export default function SoList() {
     return () => unsubscribe();
   }, []);
 
-  // Filter Daftar SO Berdasarkan Input Pencarian
+  // Filter Daftar SO Berdasarkan Pencarian
   const filteredSoKeys = Object.keys(soGroupData).filter(soKey => {
     const group = soGroupData[soKey];
     const term = searchTerm.toUpperCase().trim();
@@ -72,16 +71,21 @@ export default function SoList() {
     );
   }).reverse();
 
-  // Fungsi untuk membuka Modal Detail SO
+  // Fungsi Buka Modal Detail SO
   const handleOpenModal = (group) => {
     const sizeGroup = {};
+    let grandTotalPcs = 0;
+
     group.items.forEach(d => {
       const sz = d.size || "-";
+      const qty = parseInt(d.isi_karton) || 0;
+      grandTotalPcs += qty;
+
       if (!sizeGroup[sz]) {
         sizeGroup[sz] = { cartons: [], totalQty: 0 };
       }
       sizeGroup[sz].cartons.push(d.nomor_karton);
-      sizeGroup[sz].totalQty += (parseInt(d.isi_karton) || 0);
+      sizeGroup[sz].totalQty += qty;
     });
 
     setSelectedSoData({
@@ -89,16 +93,41 @@ export default function SoList() {
       artikel: group.artikel,
       lokasi: group.lokasi,
       destination: group.destination,
+      tanggal: group.tanggal,
       totalCtn: group.items.length,
+      grandTotalPcs,
       sizeGroup
     });
+    setCopied(false);
     setIsModalOpen(true);
+  };
+
+  // Fungsi Salin Ringkasan ke Clipboard
+  const handleCopySummary = () => {
+    if (!selectedSoData) return;
+    
+    let text = `📦 REKAPITULASI SALES ORDER\n`;
+    text += `No. SO: ${selectedSoData.so}\n`;
+    text += `Artikel: ${selectedSoData.artikel}\n`;
+    text += `Destinasi: ${selectedSoData.destination}\n`;
+    text += `Lokasi: ${selectedSoData.lokasi}\n`;
+    text += `Total: ${selectedSoData.totalCtn} Karton (${selectedSoData.grandTotalPcs} Pcs)\n\n`;
+    text += `Rincian Size:\n`;
+
+    Object.keys(selectedSoData.sizeGroup).sort().forEach(sz => {
+      const s = selectedSoData.sizeGroup[sz];
+      text += `- Size ${sz}: ${s.cartons.length} Ctn (${s.totalQty} Pcs) | No: ${s.cartons.join(', ')}\n`;
+    });
+
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
     <div className="max-w-7xl mx-auto flex flex-col h-full relative">
       
-      {/* Header & Kotak Pencarian */}
+      {/* Header & Pencarian */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
         <div>
           <h2 className="text-xl font-extrabold text-textMain">Master Sales Order (SO) List</h2>
@@ -118,7 +147,7 @@ export default function SoList() {
         </div>
       </div>
 
-      {/* Tabel Data Enterprise Modern */}
+      {/* Tabel Data Enterprise */}
       <div className="flex-1 bg-surface border border-borderLight rounded-2xl shadow-sm overflow-hidden flex flex-col">
         <div className="overflow-x-auto flex-1">
           <table className="w-full text-left border-collapse">
@@ -192,14 +221,17 @@ export default function SoList() {
         </div>
       </div>
 
-      {/* MODAL POP-UP INFORMASI DETAIL SO */}
+      {/* MODAL DETAIL SO BERBASIS TABEL MINI & QUICK ACTIONS */}
       {isModalOpen && selectedSoData && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex justify-center items-center p-4">
-          <div className="bg-surface w-full max-w-lg rounded-2xl p-6 shadow-2xl border border-borderLight animate-in fade-in zoom-in duration-200">
+          <div className="bg-surface w-full max-w-2xl rounded-2xl p-6 shadow-2xl border border-borderLight animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
             
             {/* Header Modal */}
-            <div className="flex justify-between items-center pb-4 border-b border-borderLight mb-4">
-              <h3 className="text-lg font-extrabold text-primary">Detail SO: {selectedSoData.so}</h3>
+            <div className="flex justify-between items-center pb-4 border-b border-borderLight mb-5">
+              <div>
+                <span className="text-[10px] font-extrabold bg-indigo-50 text-primary px-2 py-0.5 rounded uppercase">Detail Sales Order</span>
+                <h3 className="text-xl font-black text-textMain mt-1">{selectedSoData.so}</h3>
+              </div>
               <button 
                 onClick={() => setIsModalOpen(false)}
                 className="w-8 h-8 rounded-full bg-bgBody border border-borderLight flex justify-center items-center text-textMain hover:bg-slate-100 transition-colors"
@@ -208,41 +240,72 @@ export default function SoList() {
               </button>
             </div>
 
-            {/* Informasi Umum */}
-            <div className="bg-bgBody p-4 rounded-xl border border-borderLight mb-5 grid grid-cols-2 gap-4">
+            {/* Kotak Ringkasan Informasi */}
+            <div className="bg-bgBody p-4 rounded-xl border border-borderLight mb-5 grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <div className="text-[10px] font-bold text-textMuted uppercase">ARTIKEL</div>
-                <div className="text-sm font-extrabold text-textMain mt-0.5">{selectedSoData.artikel}</div>
+                <div className="text-[10px] font-bold text-textMuted uppercase">Artikel</div>
+                <div className="text-xs font-extrabold text-textMain mt-0.5 truncate">{selectedSoData.artikel}</div>
               </div>
               <div>
-                <div className="text-[10px] font-bold text-textMuted uppercase">LOKASI GUDANG</div>
-                <div className="text-sm font-extrabold text-emerald-600 mt-0.5">📍 {selectedSoData.lokasi}</div>
+                <div className="text-[10px] font-bold text-textMuted uppercase">Lokasi Gudang</div>
+                <div className="text-xs font-extrabold text-emerald-600 mt-0.5">📍 {selectedSoData.lokasi}</div>
               </div>
-              <div className="col-span-2 pt-2 border-t border-borderLight">
-                <div className="text-[10px] font-bold text-textMuted uppercase">DESTINASI TUJUAN</div>
-                <div className="text-sm font-extrabold text-primary mt-0.5">🌍 {selectedSoData.destination}</div>
+              <div>
+                <div className="text-[10px] font-bold text-textMuted uppercase">Destinasi</div>
+                <div className="text-xs font-extrabold text-primary mt-0.5">🌍 {selectedSoData.destination}</div>
+              </div>
+              <div>
+                <div className="text-[10px] font-bold text-textMuted uppercase">Total Muatan</div>
+                <div className="text-xs font-extrabold text-slate-800 mt-0.5">{selectedSoData.totalCtn} Ctn ({selectedSoData.grandTotalPcs} Pcs)</div>
               </div>
             </div>
 
-            {/* Rincian Ukuran & Nomor Karton */}
-            <div className="text-xs font-extrabold text-textMain mb-3">Rincian Ukuran & Nomor Karton ({selectedSoData.totalCtn} Total Karton):</div>
-            <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2">
-              {Object.keys(selectedSoData.sizeGroup).sort().map((sz, idx) => {
-                const sData = selectedSoData.sizeGroup[sz];
-                return (
-                  <div key={idx} className="border border-borderLight p-3 rounded-xl bg-surface">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="font-extrabold text-sm text-primary">Size: {sz}</span>
-                      <span className="text-[11px] font-bold bg-bgBody px-2.5 py-1 rounded-md border border-borderLight">
-                        {sData.cartons.length} Karton | {sData.totalQty} Pcs
-                      </span>
-                    </div>
-                    <div className="text-xs text-textMuted font-semibold">
-                      <span className="font-bold text-textMain">Nomor Karton: </span> {sData.cartons.join(', ')}
-                    </div>
-                  </div>
-                );
-              })}
+            {/* Tabel Mini Rincian Ukuran */}
+            <div className="text-xs font-extrabold text-textMain mb-2">Rincian Ukuran & Nomor Karton:</div>
+            <div className="flex-1 overflow-y-auto border border-borderLight rounded-xl mb-6">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-bgBody border-b border-borderLight text-[10px] font-extrabold text-textMuted uppercase">
+                    <th className="py-2.5 px-4">Size</th>
+                    <th className="py-2.5 px-4 text-center">Ctn Qty</th>
+                    <th className="py-2.5 px-4 text-center">Total Pcs</th>
+                    <th className="py-2.5 px-4">Nomor Karton</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-borderLight text-xs font-semibold">
+                  {Object.keys(selectedSoData.sizeGroup).sort().map((sz, idx) => {
+                    const s = selectedSoData.sizeGroup[sz];
+                    return (
+                      <tr key={idx} className="hover:bg-slate-50">
+                        <td className="py-3 px-4 font-extrabold text-primary">{sz}</td>
+                        <td className="py-3 px-4 text-center font-bold">{s.cartons.length} Ctn</td>
+                        <td className="py-3 px-4 text-center font-bold text-slate-700">{s.totalQty} Pcs</td>
+                        <td className="py-3 px-4 text-textMuted font-medium text-[11px] leading-relaxed">
+                          {s.cartons.join(', ')}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Footer Modal dengan Tombol Aksi Cepat */}
+            <div className="flex justify-between items-center pt-2">
+              <button 
+                onClick={handleCopySummary}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-bgBody border border-borderLight rounded-xl text-xs font-bold text-textMain hover:bg-slate-100 transition-colors"
+              >
+                {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} className="text-textMuted" />}
+                {copied ? 'Berhasil Disalin!' : 'Salin Ringkasan SO'}
+              </button>
+
+              <button 
+                onClick={() => setIsModalOpen(false)}
+                className="btn-primary py-2.5 px-6 text-xs"
+              >
+                Tutup
+              </button>
             </div>
 
           </div>
