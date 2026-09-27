@@ -39,23 +39,21 @@ export default function Dashboard() {
   useEffect(() => {
     const kartonRef = ref(db, 'stok_inbound_wh');
     const planningRef = ref(db, 'so_planning');
-    
-    let inboundSnapshotData = [];
-    let planningSnapshotData = [];
 
-    const updateDashboardMetrics = () => {
+    let latestInbound = [];
+    let latestPlanning = [];
+
+    const computeData = () => {
       let totalQty = 0;
       const uniqueSoSet = new Set();
       const uniqueLocSet = new Set();
       const destMap = {};
       const soGroup = {};
       const inboundMap = {};
-      const rawList = [];
 
-      inboundSnapshotData.forEach((child) => {
-        const data = child.val();
-        data.id = child.key;
-        rawList.push(data);
+      latestInbound.forEach((item) => {
+        const data = item.val();
+        data.id = item.key;
 
         totalQty += parseInt(data.isi_karton) || 0;
         if (data.so_number) uniqueSoSet.add(data.so_number);
@@ -77,10 +75,10 @@ export default function Dashboard() {
       });
 
       let completedPlans = 0;
-      let totalPlans = planningSnapshotData.length;
+      let totalPlans = latestPlanning.length;
 
-      planningSnapshotData.forEach((plan) => {
-        const p = plan.val();
+      latestPlanning.forEach((planSnap) => {
+        const p = planSnap.val();
         const soKey = (p.so_number || "").toUpperCase().trim();
         const actual = inboundMap[soKey] || 0;
         if (actual >= (p.target_qty || 0)) {
@@ -88,9 +86,11 @@ export default function Dashboard() {
         }
       });
 
-      setRawDataStorage(rawList);
+      const mappedRaw = latestInbound.map(item => ({ id: item.key, ...item.val() }));
+      setRawDataStorage(mappedRaw);
+
       setStats({
-        totalCtn: rawList.length,
+        totalCtn: latestInbound.length,
         uniqueSo: uniqueSoSet.size,
         totalQty: totalQty,
         uniqueLoc: uniqueLocSet.size,
@@ -109,15 +109,19 @@ export default function Dashboard() {
     };
 
     const unsubInbound = onValue(kartonRef, (snapshot) => {
-      inboundSnapshotData = [];
-      snapshot.forEach((child) => inboundSnapshotData.push(child));
-      updateDashboardMetrics();
+      latestInbound = [];
+      snapshot.forEach((child) => {
+        latestInbound.push(child);
+      });
+      computeData();
     });
 
     const unsubPlanning = onValue(planningRef, (snapshot) => {
-      planningSnapshotData = [];
-      snapshot.forEach((child) => planningSnapshotData.push(child));
-      updateDashboardMetrics();
+      latestPlanning = [];
+      snapshot.forEach((child) => {
+        latestPlanning.push(child);
+      });
+      computeData();
     });
 
     return () => {
