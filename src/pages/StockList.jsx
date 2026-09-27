@@ -1,520 +1,206 @@
-import { useEffect, useMemo, useState } from 'react';
-import { onValue, ref } from 'firebase/database';
-import {
-  Search,
-  RefreshCw,
-  Package,
-  Boxes,
-  MapPin,
-  FileText,
-  Filter,
-  X,
-} from 'lucide-react';
-
+import { useState, useEffect } from 'react';
+import { ref, onValue, update, remove } from 'firebase/database';
 import { db } from '../config/firebase';
+import { Search, Package, MapPin, Globe, Trash2, Edit3, X, Check } from 'lucide-react';
 
 export default function StockList() {
-  const [stocks, setStocks] = useState([]);
+  const [rawData, setRawData] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [jenisFilter, setJenisFilter] = useState('ALL');
-  const [statusFilter, setStatusFilter] = useState('ALL');
+
+  // Edit Modal State
+  const [editingItem, setEditingItem] = useState(null);
+  const [editQty, setEditQty] = useState('');
+  const [editLoc, setEditLoc] = useState('');
 
   useEffect(() => {
-    const stockRef = ref(db, 'stok_inbound_wh');
-
-    const unsubscribe = onValue(
-      stockRef,
-      (snapshot) => {
-        const data = snapshot.val();
-
-        if (!data) {
-          setStocks([]);
-          setLoading(false);
-          return;
-        }
-
-        const rows = Object.entries(data).map(([id, value]) => ({
-          id,
-          ...value,
-        }));
-
-        // Data terbaru di atas
-        rows.sort((a, b) => {
-          const timeA = getTimestamp(a.timestamp_in);
-          const timeB = getTimestamp(b.timestamp_in);
-
-          return timeB - timeA;
-        });
-
-        setStocks(rows);
-        setLoading(false);
-      },
-      (error) => {
-        console.error('Firebase Stock Error:', error);
-        setStocks([]);
-        setLoading(false);
-      }
-    );
+    const kartonRef = ref(db, 'stok_inbound_wh');
+    const unsubscribe = onValue(kartonRef, (snapshot) => {
+      const data = [];
+      snapshot.forEach((child) => {
+        data.push({ id: child.key, ...child.val() });
+      });
+      setRawData(data.reverse());
+      setLoading(false);
+    });
 
     return () => unsubscribe();
   }, []);
 
-  const filteredStocks = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
-
-    return stocks.filter((item) => {
-      const matchesSearch =
-        !keyword ||
-        [
-          item.so_number,
-          item.artikel,
-          item.destination,
-          item.size,
-          item.nomor_karton,
-          item.lokasi,
-          item.jenis,
-          item.status,
-          item.user,
-        ].some((value) =>
-          String(value ?? '')
-            .toLowerCase()
-            .includes(keyword)
-        );
-
-      const matchesJenis =
-        jenisFilter === 'ALL' ||
-        String(item.jenis ?? '').toUpperCase() === jenisFilter;
-
-      const matchesStatus =
-        statusFilter === 'ALL' ||
-        String(item.status ?? '').toUpperCase() === statusFilter;
-
-      return matchesSearch && matchesJenis && matchesStatus;
-    });
-  }, [stocks, search, jenisFilter, statusFilter]);
-
-  const stats = useMemo(() => {
-    const totalQty = filteredStocks.reduce(
-      (sum, item) => sum + toNumber(item.isi_karton),
-      0
-    );
-
-    const uniqueSo = new Set(
-      filteredStocks
-        .map((item) => String(item.so_number ?? '').trim())
-        .filter(Boolean)
-    ).size;
-
-    const uniqueLocation = new Set(
-      filteredStocks
-        .map((item) => String(item.lokasi ?? '').trim())
-        .filter(Boolean)
-    ).size;
-
-    return {
-      totalRows: filteredStocks.length,
-      totalQty,
-      uniqueSo,
-      uniqueLocation,
-    };
-  }, [filteredStocks]);
-
-  const clearFilters = () => {
-    setSearch('');
-    setJenisFilter('ALL');
-    setStatusFilter('ALL');
+  const handleDelete = async (id) => {
+    if (window.confirm("Are you sure you want to delete this carton record?")) {
+      try {
+        await remove(ref(db, `stok_inbound_wh/${id}`));
+      } catch (err) {
+        alert("Failed to delete: " + err.message);
+      }
+    }
   };
 
-  const hasFilter =
-    search.trim() ||
-    jenisFilter !== 'ALL' ||
-    statusFilter !== 'ALL';
+  const handleOpenEdit = (item) => {
+    setEditingItem(item);
+    setEditQty(item.isi_karton || '');
+    setEditLoc(item.lokasi || '');
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingItem) return;
+    try {
+      await update(ref(db, `stok_inbound_wh/${editingItem.id}`), {
+        isi_karton: parseInt(editQty) || 0,
+        lokasi: editLoc.toUpperCase()
+      });
+      setEditingItem(null);
+      alert("Successfully updated!");
+    } catch (err) {
+      alert("Failed to update: " + err.message);
+    }
+  };
+
+  const filteredData = rawData.filter(d => {
+    const term = searchTerm.toUpperCase().trim();
+    if (!term) return true;
+    return (
+      (d.so_number || "").toUpperCase().includes(term) ||
+      (d.artikel || "").toUpperCase().includes(term) ||
+      (d.destination || "").toUpperCase().includes(term) ||
+      (d.lokasi || "").toUpperCase().includes(term) ||
+      (d.nomor_karton || "").toUpperCase().includes(term)
+    );
+  });
 
   return (
-    <div className="max-w-7xl mx-auto w-full h-full flex flex-col gap-5">
-      {/* HEADER */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 shrink-0">
-        <div>
-          <h2 className="text-2xl font-extrabold text-textMain">
-            Stock List
-          </h2>
-
-          <p className="text-sm font-semibold text-textMuted mt-1">
-            Daftar inbound yang tersimpan di warehouse
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-100">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-xs font-bold text-emerald-700">
-              Realtime
-            </span>
+    <div className="max-w-7xl mx-auto flex flex-col h-full relative">
+      
+      {/* Search Header */}
+      <div className="sticky top-0 z-10 bg-bgBody/80 backdrop-blur-md pb-6">
+        <div className="relative">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+            <Search className="h-5 w-5 text-textMuted" />
           </div>
-
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="w-10 h-10 flex items-center justify-center rounded-lg border border-borderLight bg-surface hover:border-primary hover:text-primary transition-colors"
-            title="Refresh"
-          >
-            <RefreshCw size={17} />
-          </button>
+          <input
+            type="text"
+            className="w-full pl-12 pr-4 py-4 border border-borderLight rounded-xl text-sm font-bold bg-surface text-textMain outline-none focus:border-primary focus:ring-4 focus:ring-indigo-50 shadow-sm uppercase"
+            placeholder="Search by SO Number, Article, Destination, or Location..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
       </div>
 
-      {/* KPI */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
-        <StatCard
-          icon={Package}
-          label="Total Record"
-          value={stats.totalRows}
-          iconClass="bg-indigo-50 text-primary"
-        />
+      {/* Grid List */}
+      <div className="flex-1 overflow-y-auto pb-10">
+        {loading ? (
+          <div className="text-center mt-20 text-textMuted font-bold">Loading Stock Data...</div>
+        ) : filteredData.length === 0 ? (
+          <div className="text-center mt-20 text-textMuted font-bold">No stock records found.</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {filteredData.map((d) => (
+              <div key={d.id} className="bg-surface border border-borderLight rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-200 group flex flex-col justify-between">
+                <div>
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="font-extrabold text-lg text-textMain group-hover:text-primary transition-colors">
+                      {d.so_number}
+                    </span>
+                    <span className={`text-[10px] font-black px-2.5 py-1 rounded-md uppercase tracking-wider ${
+                      d.jenis === 'MIX' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {d.jenis}
+                    </span>
+                  </div>
 
-        <StatCard
-          icon={Boxes}
-          label="Total Qty"
-          value={stats.totalQty}
-          iconClass="bg-amber-50 text-amber-600"
-        />
+                  <div className="flex justify-between items-center bg-bgBody border border-borderLight p-3 rounded-lg mb-4">
+                    <div className="text-xl font-black text-primary">{d.size}</div>
+                    <div className="text-xs font-extrabold text-textMuted">QTY: {d.isi_karton || '-'} PCS</div>
+                  </div>
 
-        <StatCard
-          icon={FileText}
-          label="Unique SO"
-          value={stats.uniqueSo}
-          iconClass="bg-emerald-50 text-emerald-600"
-        />
-
-        <StatCard
-          icon={MapPin}
-          label="Lokasi Aktif"
-          value={stats.uniqueLocation}
-          iconClass="bg-rose-50 text-rose-600"
-        />
-      </div>
-
-      {/* FILTER */}
-      <div className="bg-surface border border-borderLight rounded-2xl p-4 shadow-sm shrink-0">
-        <div className="flex flex-col xl:flex-row gap-3">
-          {/* SEARCH */}
-          <div className="relative flex-1">
-            <Search
-              size={18}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-textMuted"
-            />
-
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Cari SO, artikel, destination, karton, lokasi..."
-              className="w-full pl-11 pr-10 py-3 rounded-xl border border-borderLight bg-slate-50 text-sm font-semibold text-textMain outline-none focus:border-primary focus:bg-surface transition-all"
-            />
-
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-textMuted hover:text-primary"
-              >
-                <X size={17} />
-              </button>
-            )}
-          </div>
-
-          {/* JENIS */}
-          <div className="flex items-center gap-2">
-            <Filter size={17} className="text-textMuted hidden sm:block" />
-
-            <select
-              value={jenisFilter}
-              onChange={(e) => setJenisFilter(e.target.value)}
-              className="px-4 py-3 rounded-xl border border-borderLight bg-slate-50 text-sm font-bold text-textMain outline-none focus:border-primary"
-            >
-              <option value="ALL">Semua Jenis</option>
-              <option value="SOLID">SOLID</option>
-              <option value="MIX">MIX</option>
-            </select>
-          </div>
-
-          {/* STATUS */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-3 rounded-xl border border-borderLight bg-slate-50 text-sm font-bold text-textMain outline-none focus:border-primary"
-          >
-            <option value="ALL">Semua Status</option>
-            <option value="INBOUND">INBOUND</option>
-          </select>
-
-          {hasFilter && (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="px-4 py-3 rounded-xl border border-borderLight bg-surface text-sm font-bold text-textMuted hover:text-primary hover:border-primary transition-all"
-            >
-              Reset
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* TABLE */}
-      <div className="bg-surface border border-borderLight rounded-2xl shadow-sm overflow-hidden flex-1 min-h-0">
-        <div className="h-full overflow-auto">
-          <table className="w-full border-collapse min-w-[1100px]">
-            <thead className="sticky top-0 z-10">
-              <tr className="bg-slate-50 border-b border-borderLight">
-                <th className="table-head">No</th>
-                <th className="table-head text-left">SO</th>
-                <th className="table-head text-left">Jenis</th>
-                <th className="table-head text-left">Artikel</th>
-                <th className="table-head text-left">Destination</th>
-                <th className="table-head text-left">Size</th>
-                <th className="table-head text-left">No. Karton</th>
-                <th className="table-head text-right">Qty</th>
-                <th className="table-head text-left">Lokasi</th>
-                <th className="table-head text-left">Status</th>
-                <th className="table-head text-left">Tanggal</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {loading ? (
-                <LoadingRows />
-              ) : filteredStocks.length === 0 ? (
-                <tr>
-                  <td colSpan="11" className="py-20 text-center">
-                    <div className="flex flex-col items-center justify-center">
-                      <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
-                        <Boxes size={25} className="text-slate-400" />
-                      </div>
-
-                      <div className="text-sm font-extrabold text-textMain">
-                        Tidak ada data
-                      </div>
-
-                      <div className="text-xs font-semibold text-textMuted mt-1">
-                        {hasFilter
-                          ? 'Tidak ada data yang cocok dengan filter.'
-                          : 'Belum ada data inbound.'}
-                      </div>
-
-                      {hasFilter && (
-                        <button
-                          type="button"
-                          onClick={clearFilters}
-                          className="mt-4 text-xs font-bold text-primary hover:underline"
-                        >
-                          Reset filter
-                        </button>
-                      )}
+                  <div className="space-y-2 mb-4 text-xs">
+                    <div className="flex items-center justify-between border-b border-dashed border-borderLight pb-1">
+                      <span className="font-semibold text-textMuted">Carton No:</span>
+                      <span className="font-extrabold text-textMain">{d.nomor_karton}</span>
                     </div>
-                  </td>
-                </tr>
-              ) : (
-                filteredStocks.map((item, index) => (
-                  <StockRow
-                    key={item.id}
-                    item={item}
-                    index={index}
-                  />
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
+                    <div className="flex items-center justify-between border-b border-dashed border-borderLight pb-1">
+                      <span className="font-semibold text-textMuted">Article:</span>
+                      <span className="font-extrabold text-textMain">{d.artikel}</span>
+                    </div>
+                    <div className="flex items-center justify-between border-b border-dashed border-borderLight pb-1">
+                      <span className="font-semibold text-textMuted">Destination:</span>
+                      <span className="font-extrabold text-primary">{d.destination}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-textMuted">Location:</span>
+                      <span className="font-extrabold text-emerald-600">{d.lokasi}</span>
+                    </div>
+                  </div>
+                </div>
 
-/* =========================================================
-   COMPONENTS
-========================================================= */
-
-function StatCard({ icon: Icon, label, value, iconClass }) {
-  return (
-    <div className="bg-surface border border-borderLight rounded-2xl p-4 shadow-sm flex items-center gap-3">
-      <div
-        className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${iconClass}`}
-      >
-        <Icon size={20} />
-      </div>
-
-      <div className="min-w-0">
-        <div className="text-[10px] font-bold text-textMuted uppercase tracking-wider">
-          {label}
-        </div>
-
-        <div className="text-xl font-extrabold text-textMain mt-0.5">
-          {Number(value || 0).toLocaleString('id-ID')}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function StockRow({ item, index }) {
-  const jenis = String(item.jenis ?? '').toUpperCase();
-  const status = String(item.status ?? '').toUpperCase();
-
-  return (
-    <tr className="border-b border-borderLight last:border-b-0 hover:bg-slate-50/70 transition-colors">
-      <td className="table-cell text-center text-textMuted">
-        {index + 1}
-      </td>
-
-      <td className="table-cell">
-        <div className="font-extrabold text-textMain">
-          {item.so_number || '-'}
-        </div>
-      </td>
-
-      <td className="table-cell">
-        <span
-          className={`
-            inline-flex px-2.5 py-1 rounded-lg text-[10px] font-extrabold
-            ${
-              jenis === 'MIX'
-                ? 'bg-violet-50 text-violet-600'
-                : 'bg-indigo-50 text-primary'
-            }
-          `}
-        >
-          {jenis || '-'}
-        </span>
-      </td>
-
-      <td className="table-cell">
-        <span className="font-bold text-textMain">
-          {item.artikel || '-'}
-        </span>
-      </td>
-
-      <td className="table-cell">
-        <span className="font-semibold text-textMain">
-          {item.destination || '-'}
-        </span>
-      </td>
-
-      <td className="table-cell">
-        {item.size || '-'}
-      </td>
-
-      <td className="table-cell">
-        <span className="font-extrabold text-primary">
-          {item.nomor_karton || '-'}
-        </span>
-      </td>
-
-      <td className="table-cell text-right">
-        <span className="font-extrabold text-textMain">
-          {toNumber(item.isi_karton).toLocaleString('id-ID')}
-        </span>
-      </td>
-
-      <td className="table-cell">
-        <span className="inline-flex items-center gap-1.5 font-bold text-textMain">
-          <MapPin size={13} className="text-rose-500" />
-          {item.lokasi || '-'}
-        </span>
-      </td>
-
-      <td className="table-cell">
-        <span
-          className={`
-            inline-flex px-2.5 py-1 rounded-lg text-[10px] font-extrabold
-            ${
-              status === 'INBOUND'
-                ? 'bg-emerald-50 text-emerald-600'
-                : 'bg-slate-100 text-slate-600'
-            }
-          `}
-        >
-          {status || '-'}
-        </span>
-      </td>
-
-      <td className="table-cell">
-        <div className="font-semibold text-textMain whitespace-nowrap">
-          {formatDate(item.tanggal || item.timestamp_in)}
-        </div>
-
-        {item.user && (
-          <div className="text-[10px] font-semibold text-textMuted mt-0.5">
-            {item.user}
+                {/* Card Footer & Action Buttons */}
+                <div className="pt-3 border-t border-dashed border-borderLight flex justify-between items-center">
+                  <span className="text-[10px] font-bold text-textMuted">📅 {d.tanggal}</span>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => handleOpenEdit(d)}
+                      className="p-2 bg-indigo-50 text-primary rounded-lg hover:bg-primary hover:text-white transition-colors"
+                      title="Edit Record"
+                    >
+                      <Edit3 size={14} />
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(d.id)}
+                      className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-colors"
+                      title="Delete Record"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
-      </td>
-    </tr>
+      </div>
+
+      {/* EDIT MODAL */}
+      {editingItem && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex justify-center items-center p-4">
+          <div className="bg-surface w-full max-w-md rounded-2xl p-6 shadow-2xl border border-borderLight">
+            <div className="flex justify-between items-center pb-4 border-b border-borderLight mb-4">
+              <h3 className="text-lg font-extrabold text-primary">Edit Carton Record</h3>
+              <button onClick={() => setEditingItem(null)} className="w-8 h-8 rounded-full bg-bgBody flex items-center justify-center">
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="form-label">Quantity (Pcs)</label>
+                <input 
+                  type="number" 
+                  className="form-input" 
+                  value={editQty} 
+                  onChange={(e) => setEditQty(e.target.value)} 
+                />
+              </div>
+              <div>
+                <label className="form-label">Warehouse Location</label>
+                <input 
+                  type="text" 
+                  className="form-input uppercase" 
+                  value={editLoc} 
+                  onChange={(e) => setEditLoc(e.target.value.toUpperCase())} 
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setEditingItem(null)} className="px-5 py-2.5 bg-bgBody rounded-xl font-bold text-xs">Cancel</button>
+              <button onClick={handleSaveEdit} className="btn-primary py-2.5 px-6 text-xs">Save Changes</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
   );
-}
-
-function LoadingRows() {
-  return Array.from({ length: 8 }).map((_, index) => (
-    <tr key={index} className="border-b border-borderLight">
-      {Array.from({ length: 11 }).map((__, cellIndex) => (
-        <td key={cellIndex} className="px-4 py-4">
-          <div className="h-4 bg-slate-100 rounded animate-pulse" />
-        </td>
-      ))}
-    </tr>
-  ));
-}
-
-/* =========================================================
-   HELPERS
-========================================================= */
-
-function toNumber(value) {
-  if (value === null || value === undefined || value === '') {
-    return 0;
-  }
-
-  const number = Number(value);
-
-  return Number.isFinite(number) ? number : 0;
-}
-
-function getTimestamp(value) {
-  if (!value) return 0;
-
-  if (typeof value === 'number') {
-    return value;
-  }
-
-  if (typeof value === 'object' && value.seconds) {
-    return value.seconds * 1000;
-  }
-
-  const parsed = new Date(value).getTime();
-
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function formatDate(value) {
-  if (!value) return '-';
-
-  let date;
-
-  if (typeof value === 'number') {
-    date = new Date(value);
-  } else if (typeof value === 'object' && value.seconds) {
-    date = new Date(value.seconds * 1000);
-  } else {
-    date = new Date(value);
-  }
-
-  if (Number.isNaN(date.getTime())) {
-    return String(value);
-  }
-
-  return date.toLocaleDateString('id-ID', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
 }
