@@ -1,108 +1,46 @@
-import {
-  LayoutDashboard,
-  PackagePlus,
-  Boxes,
-  Warehouse,
-  LogOut,
-} from 'lucide-react';
+import { LayoutDashboard, Inbox, Package, FileSpreadsheet, LogOut } from 'lucide-react';
 
 export default function Sidebar({ activeTab, setActiveTab }) {
-  const menus = [
-    {
-      id: 'dashboard',
-      label: 'Dashboard',
-      icon: LayoutDashboard,
-    },
-    {
-      id: 'entry',
-      label: 'Inbound Entry',
-      icon: PackagePlus,
-    },
-    {
-      id: 'stock',
-      label: 'Stock List',
-      icon: Boxes,
-    },
+  const menuItems = [
+    { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { id: 'entry', icon: Inbox, label: 'Entry Form' },
+    { id: 'stock', icon: Package, label: 'Stock List' },
+    { id: 'solist', icon: FileSpreadsheet, label: 'SO List Database' }, // Menu Baru
   ];
 
   return (
-    <aside className="w-64 shrink-0 h-screen bg-sidebar text-white flex flex-col p-4">
-      {/* LOGO */}
-      <div className="px-4 py-5 mb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-glow">
-            <Warehouse size={22} />
-          </div>
-
-          <div>
-            <h1 className="text-lg font-extrabold tracking-tight">
-              WMS Inbound
-            </h1>
-            <p className="text-[10px] text-white/50 font-bold uppercase tracking-widest">
-              Warehouse System
-            </p>
-          </div>
-        </div>
+    <aside className="w-20 bg-sidebar flex flex-col items-center py-8 z-50 shrink-0 h-screen transition-all">
+      <div className="text-white font-black text-xl mb-12 bg-gradient-to-br from-indigo-400 to-indigo-600 bg-clip-text text-transparent">
+        WMS
       </div>
-
-      {/* MENU */}
-      <nav className="flex-1 space-y-2">
-        <div className="px-4 mb-3">
-          <span className="text-[10px] font-extrabold uppercase tracking-widest text-white/40">
-            Main Menu
-          </span>
-        </div>
-
-        {menus.map((menu) => {
-          const Icon = menu.icon;
-          const active = activeTab === menu.id;
-
+      
+      <div className="flex flex-col gap-6 w-full items-center flex-1">
+        {menuItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
           return (
             <button
-              key={menu.id}
-              type="button"
-              onClick={() => setActiveTab(menu.id)}
-              className={`
-                w-full flex items-center gap-3 px-4 py-3 rounded-xl
-                text-sm font-bold transition-all duration-200
-                ${
-                  active
-                    ? 'bg-primary text-white shadow-glow'
-                    : 'text-white/60 hover:text-white hover:bg-sidebar-hover'
-                }
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={`w-12 h-12 rounded-xl flex justify-center items-center transition-all duration-300 relative group
+                ${isActive ? 'bg-primary text-white shadow-[0_4px_15px_rgba(79,70,229,0.4)]' : 'text-slate-400 hover:text-white hover:bg-white/10'}
               `}
             >
-              <Icon size={19} strokeWidth={active ? 2.5 : 2} />
-
-              <span>{menu.label}</span>
+              <Icon size={22} />
+              <span className="absolute left-16 bg-slate-800 text-white px-3 py-1.5 rounded-md text-xs font-semibold opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all whitespace-nowrap pointer-events-none">
+                {item.label}
+              </span>
             </button>
           );
         })}
-      </nav>
-
-      {/* FOOTER */}
-      <div className="border-t border-white/10 pt-4 mt-4">
-        <div className="px-4 py-3 mb-2">
-          <div className="text-[10px] text-white/40 font-bold uppercase tracking-widest">
-            System
-          </div>
-
-          <div className="text-xs text-white/70 font-semibold mt-1">
-            PPFG Warehouse
-          </div>
-        </div>
-
-        <button
-          type="button"
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-white/50 hover:text-white hover:bg-sidebar-hover transition-all"
-          onClick={() => {
-            alert('Logout belum diaktifkan.');
-          }}
-        >
-          <LogOut size={18} />
-          <span>Logout</span>
-        </button>
       </div>
+
+      <button className="text-slate-400 hover:text-red-400 transition-colors mt-auto group relative w-12 h-12 flex justify-center items-center rounded-xl hover:bg-white/5">
+        <LogOut size={22} />
+        <span className="absolute left-16 bg-red-600 text-white px-3 py-1.5 rounded-md text-xs font-semibold opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all whitespace-nowrap pointer-events-none">
+          Logout
+        </span>
+      </button>
     </aside>
   );
 }
