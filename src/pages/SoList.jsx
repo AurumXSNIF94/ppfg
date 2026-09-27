@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ref, onValue } from 'firebase/database';
 import { db } from '../config/firebase';
-import { Search, MapPin, Globe, X, FileText } from 'lucide-react';
+import { Search, MapPin, Globe, X, FileText, ChevronRight } from 'lucide-react';
 
 export default function SoList() {
   const [soGroupData, setSoGroupData] = useState({});
@@ -80,93 +80,98 @@ export default function SoList() {
   return (
     <div className="max-w-7xl mx-auto flex flex-col h-full relative">
       
-      {/* Kotak Pencarian Master SO */}
-      <div className="sticky top-0 z-10 bg-bgBody/85 backdrop-blur-md pb-6">
-        <div className="relative">
-          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-textMuted" />
+      {/* Header & Kotak Pencarian */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <div>
+          <h2 className="text-xl font-extrabold text-textMain">Master Sales Order (SO) List</h2>
+          <p className="text-xs font-semibold text-textMuted mt-0.5">Rekapitulasi seluruh data inbound yang tersimpan di database.</p>
+        </div>
+        <div className="relative w-full md:w-80">
+          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+            <Search className="h-4 w-4 text-textMuted" />
           </div>
           <input
             type="text"
-            className="w-full pl-12 pr-4 py-4 border border-borderLight rounded-xl text-sm font-bold bg-surface text-textMain outline-none transition-all duration-200 focus:border-primary focus:ring-4 focus:ring-indigo-50 shadow-sm uppercase"
-            placeholder="Cari berdasarkan Nomor SO, Artikel, Destinasi, atau Lokasi..."
+            className="w-full pl-10 pr-4 py-2.5 border border-borderLight rounded-xl text-xs font-bold bg-surface text-textMain outline-none focus:border-primary focus:ring-4 focus:ring-indigo-50 shadow-sm uppercase"
+            placeholder="Cari SO, Artikel, Destinasi..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
           />
         </div>
       </div>
 
-      {/* Grid Daftar Master SO */}
-      <div className="flex-1 overflow-y-auto pb-10">
-        {loading ? (
-          <div className="text-center mt-20 text-textMuted font-bold">Memuat Daftar SO dari Database...</div>
-        ) : filteredSoKeys.length === 0 ? (
-          <div className="text-center mt-20 text-textMuted font-bold">Sales Order tidak ditemukan.</div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredSoKeys.map((soKey) => {
-              const group = soGroupData[soKey];
-              const totalPcs = group.items.reduce((acc, curr) => acc + (parseInt(curr.isi_karton) || 0), 0);
+      {/* Tabel Data Enterprise Modern */}
+      <div className="flex-1 bg-surface border border-borderLight rounded-2xl shadow-sm overflow-hidden flex flex-col">
+        <div className="overflow-x-auto flex-1">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-bgBody border-b border-borderLight text-[11px] font-extrabold text-textMuted uppercase tracking-wider">
+                <th className="py-4 px-6">No. SO</th>
+                <th className="py-4 px-6">Tanggal</th>
+                <th className="py-4 px-6">Artikel / Style</th>
+                <th className="py-4 px-6">Destinasi</th>
+                <th className="py-4 px-6">Lokasi Gudang</th>
+                <th className="py-4 px-6 text-center">Total Karton</th>
+                <th className="py-4 px-6 text-center">Total Pcs</th>
+                <th className="py-4 px-6 text-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-borderLight text-xs font-semibold text-textMain">
+              {loading ? (
+                <tr>
+                  <td colSpan="8" className="text-center py-12 text-textMuted font-bold">Memuat Data dari Database...</td>
+                </tr>
+              ) : filteredSoKeys.length === 0 ? (
+                <tr>
+                  <td colSpan="8" className="text-center py-12 text-textMuted font-bold">Tidak ada data Sales Order ditemukan.</td>
+                </tr>
+              ) : (
+                filteredSoKeys.map((soKey) => {
+                  const group = soGroupData[soKey];
+                  const totalPcs = group.items.reduce((acc, curr) => acc + (parseInt(curr.isi_karton) || 0), 0);
 
-              return (
-                <div 
-                  key={soKey} 
-                  onClick={() => handleOpenModal(group)}
-                  className="bg-surface border border-borderLight rounded-xl p-5 shadow-sm hover:shadow-md hover:border-primary hover:-translate-y-1 transition-all duration-200 cursor-pointer group flex flex-col justify-between"
-                >
-                  <div>
-                    {/* Header Kartu SO */}
-                    <div className="flex justify-between items-center mb-3">
-                      <span className="font-black text-lg text-textMain group-hover:text-primary transition-colors">
+                  return (
+                    <tr 
+                      key={soKey} 
+                      onClick={() => handleOpenModal(group)}
+                      className="hover:bg-indigo-50/40 transition-colors cursor-pointer group"
+                    >
+                      <td className="py-4 px-6 font-extrabold text-primary flex items-center gap-2">
+                        <FileText size={16} className="text-primary/70 shrink-0" />
                         {group.so}
-                      </span>
-                      <span className="text-[10px] font-extrabold bg-indigo-50 text-primary px-2.5 py-1 rounded-md border border-indigo-100 flex items-center gap-1">
-                        <FileText size={12} /> {group.items.length} Karton
-                      </span>
-                    </div>
-
-                    {/* Total Kuantitas Pcs */}
-                    <div className="flex justify-between items-center bg-bgBody border border-borderLight p-3 rounded-lg mb-4">
-                      <div className="text-sm font-extrabold text-textMain">Total Qty</div>
-                      <div className="text-base font-black text-emerald-600">{totalPcs.toLocaleString()} Pcs</div>
-                    </div>
-
-                    {/* Informasi Singkat */}
-                    <div className="space-y-2 mb-4 text-xs">
-                      <div className="flex items-start gap-2">
-                        <div className="w-4 h-4 rounded bg-slate-200 text-slate-500 flex justify-center items-center shrink-0 mt-0.5 text-[10px] font-bold">A</div>
-                        <div className="flex-1 flex justify-between border-b border-dashed border-borderLight pb-1">
-                          <span className="font-semibold text-textMuted">Artikel</span>
-                          <span className="font-extrabold text-textMain">{group.artikel}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <Globe className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                        <div className="flex-1 flex justify-between border-b border-dashed border-borderLight pb-1">
-                          <span className="font-semibold text-textMuted">Destinasi</span>
-                          <span className="font-extrabold text-primary">{group.destination}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <MapPin className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                        <div className="flex-1 flex justify-between">
-                          <span className="font-semibold text-textMuted">Lokasi Gudang</span>
-                          <span className="font-extrabold text-emerald-600">{group.lokasi}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Footer Kartu */}
-                  <div className="flex justify-between items-center pt-3 border-t border-dashed border-borderLight text-[10px] font-bold text-textMuted">
-                    <span>📅 Input: {group.tanggal}</span>
-                    <span className="text-primary group-hover:underline">Klik untuk rincian →</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                      </td>
+                      <td className="py-4 px-6 text-textMuted font-bold">{group.tanggal}</td>
+                      <td className="py-4 px-6 font-extrabold">{group.artikel}</td>
+                      <td className="py-4 px-6 font-bold text-slate-600">
+                        <span className="inline-flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
+                          <Globe size={12} className="text-primary" /> {group.destination}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6 font-bold text-emerald-700">
+                        <span className="inline-flex items-center gap-1.5 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-100">
+                          <MapPin size={12} className="text-emerald-500" /> {group.lokasi}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6 text-center">
+                        <span className="bg-indigo-50 text-indigo-700 font-extrabold px-2.5 py-1 rounded-md border border-indigo-100">
+                          {group.items.length} Ctn
+                        </span>
+                      </td>
+                      <td className="py-4 px-6 text-center font-extrabold text-slate-800">
+                        {totalPcs.toLocaleString()} Pcs
+                      </td>
+                      <td className="py-4 px-6 text-right">
+                        <button className="w-8 h-8 rounded-lg bg-bgBody border border-borderLight inline-flex justify-center items-center text-textMuted group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-all">
+                          <ChevronRight size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* MODAL POP-UP INFORMASI DETAIL SO */}
@@ -186,19 +191,23 @@ export default function SoList() {
             </div>
 
             {/* Informasi Umum */}
-            <div className="bg-bgBody p-4 rounded-xl border border-borderLight mb-5 flex justify-between items-center">
+            <div className="bg-bgBody p-4 rounded-xl border border-borderLight mb-5 grid grid-cols-2 gap-4">
               <div>
                 <div className="text-[10px] font-bold text-textMuted uppercase">ARTIKEL</div>
-                <div className="text-sm font-extrabold text-textMain">{selectedSoData.artikel}</div>
+                <div className="text-sm font-extrabold text-textMain mt-0.5">{selectedSoData.artikel}</div>
               </div>
-              <div className="text-right">
-                <div className="text-[10px] font-bold text-textMuted uppercase">LOKASI / DESTINASI</div>
-                <div className="text-sm font-extrabold text-primary">📍 {selectedSoData.lokasi} | 🌍 {selectedSoData.destination}</div>
+              <div>
+                <div className="text-[10px] font-bold text-textMuted uppercase">LOKASI GUDANG</div>
+                <div className="text-sm font-extrabold text-emerald-600 mt-0.5">📍 {selectedSoData.lokasi}</div>
+              </div>
+              <div className="col-span-2 pt-2 border-t border-borderLight">
+                <div className="text-[10px] font-bold text-textMuted uppercase">DESTINASI TUJUAN</div>
+                <div className="text-sm font-extrabold text-primary mt-0.5">🌍 {selectedSoData.destination}</div>
               </div>
             </div>
 
             {/* Rincian Ukuran & Nomor Karton */}
-            <div className="text-xs font-extrabold text-textMain mb-3">Rincian Ukuran & Karton ({selectedSoData.totalCtn} Total Karton):</div>
+            <div className="text-xs font-extrabold text-textMain mb-3">Rincian Ukuran & Nomor Karton ({selectedSoData.totalCtn} Total Karton):</div>
             <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2">
               {Object.keys(selectedSoData.sizeGroup).sort().map((sz, idx) => {
                 const sData = selectedSoData.sizeGroup[sz];
