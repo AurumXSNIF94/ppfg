@@ -1,12 +1,22 @@
 import { LayoutDashboard, Inbox, Package, FileSpreadsheet, LogOut } from 'lucide-react';
+import { signOut } from 'firebase/auth';
+import { auth } from '../config/firebase';
 
 export default function Sidebar({ activeTab, setActiveTab }) {
   const menuItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { id: 'entry', icon: Inbox, label: 'Entry Form' },
     { id: 'stock', icon: Package, label: 'Stock List' },
-    { id: 'solist', icon: FileSpreadsheet, label: 'SO List Database' }, // Menu untuk daftar SO
+    { id: 'solist', icon: FileSpreadsheet, label: 'SO Master List' },
   ];
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
 
   return (
     <aside className="w-20 bg-sidebar flex flex-col items-center py-8 z-50 shrink-0 h-screen transition-all">
@@ -35,10 +45,13 @@ export default function Sidebar({ activeTab, setActiveTab }) {
         })}
       </div>
 
-      <button className="text-slate-400 hover:text-red-400 transition-colors mt-auto group relative w-12 h-12 flex justify-center items-center rounded-xl hover:bg-white/5">
+      <button 
+        onClick={handleLogout}
+        className="text-slate-400 hover:text-red-400 transition-colors mt-auto group relative w-12 h-12 flex justify-center items-center rounded-xl hover:bg-white/5"
+      >
         <LogOut size={22} />
         <span className="absolute left-16 bg-red-600 text-white px-3 py-1.5 rounded-md text-xs font-semibold opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all whitespace-nowrap pointer-events-none">
-          Logout
+          Sign Out
         </span>
       </button>
     </aside>
