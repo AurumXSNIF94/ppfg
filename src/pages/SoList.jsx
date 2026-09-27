@@ -12,6 +12,24 @@ export default function SoList() {
   const [selectedSoData, setSelectedSoData] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // Fungsi helper untuk menyeragamkan format tanggal
+  const formatDate = (dateString) => {
+    if (!dateString) return "-";
+    // Jika format sudah YYYY-MM-DD
+    const isoMatch = dateString.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (isoMatch) {
+      const [_, year, month, day] = isoMatch;
+      const dateObj = new Date(year, month - 1, day);
+      return dateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+    // Jika format teks biasa, coba parsing dengan Date object
+    const parsed = new Date(dateString);
+    if (!isNaN(parsed)) {
+      return parsed.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+    return dateString;
+  };
+
   useEffect(() => {
     const kartonRef = ref(db, 'stok_inbound_wh');
     const unsubscribe = onValue(kartonRef, (snapshot) => {
@@ -27,7 +45,7 @@ export default function SoList() {
             artikel: d.artikel || "-",
             destination: d.destination || "-",
             lokasi: d.lokasi || "-",
-            tanggal: d.tanggal || "-",
+            tanggal: formatDate(d.tanggal), // Diseragamkan di sini
             items: []
           };
         }
