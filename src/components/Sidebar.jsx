@@ -5,7 +5,7 @@ export default function Sidebar({ activeTab, setActiveTab }) {
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { id: 'entry', icon: Inbox, label: 'Entry Form' },
     { id: 'stock', icon: Package, label: 'Stock List' },
-    { id: 'solist', icon: FileSpreadsheet, label: 'SO List Database' }, // Menu Baru
+    { id: 'solist', icon: FileSpreadsheet, label: 'SO List Database' }, // Menu untuk daftar SO
   ];
 
   return (
