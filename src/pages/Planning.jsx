@@ -1,147 +1,89 @@
 import { useState, useEffect } from 'react';
-import { ref, onValue } from 'firebase/database';
-import { db } from '../config/firebase';
-import { Search, FileText } from 'lucide-react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from './config/firebase';
+import Login from './pages/Login';
+import Sidebar from './components/Sidebar';
+import Dashboard from './pages/Dashboard';
+import EntryForm from './pages/EntryForm';
+import StockList from './pages/StockList';
+import SoList from './pages/SoList';
+import Planning from './pages/Planning';
+import ExportPage from './pages/Export';
 
-export default function Planning() {
-  const [soGroupData, setSoGroupData] = useState({});
-  const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(true);
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [loadingAuth, setLoadingAuth] = useState(true);
+  const [activeTab, setActiveTab] = useState('dashboard');
 
   useEffect(() => {
-    const kartonRef = ref(db, 'stok_inbound_wh');
-    const unsubscribe = onValue(kartonRef, (snapshot) => {
-      const soMap = {};
-      
-      snapshot.forEach((child) => {
-        const d = { id: child.key, ...child.val() };
-        const so = d.so_number || "UNKNOWN";
-
-        if (!soMap[so]) {
-          soMap[so] = {
-            so: so,
-            artikel: d.artikel || "-",
-            destination: d.destination || "-",
-            lokasi: d.lokasi || "-",
-            items: []
-          };
-        }
-        soMap[so].items.push(d);
-      });
-
-      setSoGroupData(soMap);
-      setLoading(false);
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setLoadingAuth(false);
     });
-
     return () => unsubscribe();
   }, []);
 
-  const filteredSoKeys = Object.keys(soGroupData).filter(soKey => {
-    const group = soGroupData[soKey];
-    const term = searchTerm.toUpperCase().trim();
-    if (!term) return true;
+  if (loadingAuth) {
     return (
-      soKey.includes(term) ||
-      group.artikel.toUpperCase().includes(term) ||
-      group.destination.toUpperCase().includes(term)
+      <div className="flex h-screen w-screen items-center justify-center bg-bgBody text-textMuted font-bold">
+        Loading WMS Application...
+      </div>
     );
-  }).reverse();
+  }
+
+  if (!user) {
+    return <Login />;
+  }
+
+  const userName = user.displayName || user.email.split('@')[0];
 
   return (
-    <div className="max-w-7xl mx-auto flex flex-col h-full relative">
+    <div className="flex h-screen bg-bgBody overflow-hidden font-sans text-textMain">
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
       
-      {/* Header & Search */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-        <div>
-          <h2 className="text-xl font-extrabold text-textMain">SO Planning Overview</h2>
-          <p className="text-xs font-semibold text-textMuted mt-0.5">Monitor total cartons, size breakdown, and quantity planning per Sales Order.</p>
-        </div>
-        <div className="relative w-full md:w-80">
-          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-            <Search className="h-4 w-4 text-textMuted" />
+      <main className="flex-1 flex flex-col min-w-0 bg-bgBody shadow-[inset_5px_0_25px_rgba(0,0,0,0.02)] rounded-tl-3xl rounded-bl-3xl my-2 mr-2 overflow-hidden border border-borderLight">
+        
+        {/* HEADER */}
+        <header className="px-8 py-6 flex justify-between items-center bg-surface border-b border-borderLight z-10">
+          <div>
+            <h1 className="text-2xl font-extrabold text-textMain tracking-tight">
+              Welcome back, <span className="text-primary">{userName}</span>
+            </h1>
+            <p className="text-sm font-semibold text-textMuted mt-1">Warehouse Inbound Management System</p>
           </div>
-          <input
-            type="text"
-            className="w-full pl-10 pr-4 py-2.5 border border-borderLight rounded-xl text-xs font-bold bg-surface text-textMain outline-none focus:border-primary focus:ring-4 focus:ring-indigo-50 shadow-sm uppercase"
-            placeholder="Search SO or Article..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+          <div className="flex items-center gap-4">
+            <button className="w-10 h-10 rounded-full border border-borderLight flex justify-center items-center hover:shadow-soft transition-shadow bg-surface">
+              🌙
+            </button>
+            <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-primary/20 cursor-pointer">
+              <img src={user.photoURL || `https://ui-avatars.com/api/?name=${userName}&background=4F46E5&color=fff`} alt="Profile" className="w-full h-full object-cover"/>
+            </div>
+          </div>
+        </header>
+
+        {/* TAB CONTENT AREA */}
+        <div className="flex-1 overflow-hidden relative flex flex-col">
+          <div className={`absolute inset-0 p-8 overflow-y-auto transition-opacity duration-300 ${activeTab === 'dashboard' ? 'opacity-100 z-10' : 'opacity-0 z-0 hidden'}`}>
+            <Dashboard />
+          </div>
+          <div className={`absolute inset-0 p-8 overflow-y-auto transition-opacity duration-300 ${activeTab === 'entry' ? 'opacity-100 z-10' : 'opacity-0 z-0 hidden'}`}>
+            <EntryForm />
+          </div>
+          <div className={`absolute inset-0 p-8 overflow-hidden transition-opacity duration-300 ${activeTab === 'stock' ? 'opacity-100 z-10 flex flex-col' : 'opacity-0 z-0 hidden'}`}>
+            <StockList />
+          </div>
+          <div className={`absolute inset-0 p-8 overflow-hidden transition-opacity duration-300 ${activeTab === 'solist' ? 'opacity-100 z-10 flex flex-col' : 'opacity-0 z-0 hidden'}`}>
+            <SoList />
+          </div>
+          <div className={`absolute inset-0 p-8 overflow-hidden transition-opacity duration-300 ${activeTab === 'planning' ? 'opacity-100 z-10 flex flex-col' : 'opacity-0 z-0 hidden'}`}>
+            <Planning />
+          </div>
+          <div className={`absolute inset-0 p-8 overflow-hidden transition-opacity duration-300 ${activeTab === 'export' ? 'opacity-100 z-10 flex flex-col' : 'opacity-0 z-0 hidden'}`}>
+            <ExportPage />
+          </div>
         </div>
-      </div>
 
-      {/* Planning Table */}
-      <div className="flex-1 bg-surface border border-borderLight rounded-2xl shadow-sm overflow-hidden flex flex-col">
-        <div className="overflow-x-auto flex-1">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-bgBody border-b border-borderLight text-[11px] font-extrabold text-textMuted uppercase tracking-wider">
-                <th className="py-4 px-6">SO Number</th>
-                <th className="py-4 px-6">Article</th>
-                <th className="py-4 px-6">Destination</th>
-                <th className="py-4 px-6">Location</th>
-                <th className="py-4 px-6 text-center">Size Breakdown (Ctn / Pcs)</th>
-                <th className="py-4 px-6 text-center">Total Cartons</th>
-                <th className="py-4 px-6 text-center">Total Qty (Pcs)</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-borderLight text-xs font-semibold text-textMain">
-              {loading ? (
-                <tr>
-                  <td colSpan="7" className="text-center py-12 text-textMuted font-bold">Loading Planning Data...</td>
-                </tr>
-              ) : filteredSoKeys.length === 0 ? (
-                <tr>
-                  <td colSpan="7" className="text-center py-12 text-textMuted font-bold">No planning records found.</td>
-                </tr>
-              ) : (
-                filteredSoKeys.map((soKey) => {
-                  const group = soGroupData[soKey];
-                  
-                  const sizeSummary = {};
-                  let totalPcs = 0;
-                  group.items.forEach(item => {
-                    const sz = item.size || "-";
-                    const qty = parseInt(item.isi_karton) || 0;
-                    totalPcs += qty;
-                    if (!sizeSummary[sz]) sizeSummary[sz] = { ctn: 0, pcs: 0 };
-                    sizeSummary[sz].ctn += 1;
-                    sizeSummary[sz].pcs += qty;
-                  });
-
-                  return (
-                    <tr key={soKey} className="hover:bg-indigo-50/40 transition-colors">
-                      <td className="py-4 px-6 font-extrabold text-primary flex items-center gap-2">
-                        <FileText size={16} className="text-primary/70 shrink-0" />
-                        {group.so}
-                      </td>
-                      <td className="py-4 px-6 font-extrabold">{group.artikel}</td>
-                      <td className="py-4 px-6 font-bold text-slate-600">{group.destination}</td>
-                      <td className="py-4 px-6 font-bold text-emerald-700">{group.lokasi}</td>
-                      <td className="py-4 px-6 text-center">
-                        <div className="flex flex-wrap gap-1 justify-center">
-                          {Object.keys(sizeSummary).sort().map(sz => (
-                            <span key={sz} className="bg-bgBody border border-borderLight px-2 py-0.5 rounded text-[10px] font-bold">
-                              {sz}: {sizeSummary[sz].ctn} Ctn ({sizeSummary[sz].pcs}p)
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="py-4 px-6 text-center font-extrabold text-indigo-600">
-                        {group.items.length} Ctn
-                      </td>
-                      <td className="py-4 px-6 text-center font-black text-slate-900">
-                        {totalPcs.toLocaleString()} Pcs
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
+      </main>
     </div>
   );
 }
