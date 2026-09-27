@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ref, onValue, remove } from 'firebase/database';
+import { ref, onValue, remove, push, set } from 'firebase/database';
 import { db } from '../config/firebase';
 import { Search, Send, FileText, Globe, MapPin } from 'lucide-react';
 
@@ -47,17 +47,31 @@ export default function ExportPage() {
     );
   }).reverse();
 
-  // Proses Ekspor / Pengiriman ke Buyer (Mengurangkan/Menghapus Stok dari Gudang)
+  // Proses Ekspor: Simpan ke History & Hapus dari Stok Aktif
   const handleExecuteExportToBuyer = async (group) => {
     const totalPcs = group.items.reduce((acc, curr) => acc + (parseInt(curr.isi_karton) || 0), 0);
     
-    if (window.confirm(`Execute Export/Outbound shipment for SO: ${group.so} to Buyer (${group.destination})? This will ship out ${group.items.length} cartons (${totalPcs} Pcs) and deduct active warehouse stock.`)) {
+    if (window.confirm(`Execute Export/Outbound shipment for SO: ${group.so} to Buyer (${group.destination})? This will ship out ${group.items.length} cartons (${totalPcs} Pcs) and save to export history.`)) {
       try {
-        // Hapus data dari stok inbound aktif karena barang sudah diekspor/dikirim keluar
+        const exportDate = new Date().toISOString().split('T')[0];
+
+        // 1. Catat ke History Transaksi Ekspor
+        await push(ref(db, 'export_history'), {
+          so_number: group.so,
+          artikel: group.artikel,
+          destination: group.destination,
+          lokasi: group.lokasi,
+          total_cartons: group.items.length,
+          total_pcs: totalPcs,
+          export_date: exportDate,
+          items: group.items
+        });
+
+        // 2. Hapus dari stok inbound aktif
         const deletePromises = group.items.map(item => remove(ref(db, `stok_inbound_wh/${item.id}`)));
         await Promise.all(deletePromises);
 
-        alert(`Successfully exported SO: ${group.so} to buyer! Warehouse stock has been updated.`);
+        alert(`Successfully exported SO: ${group.so}! Transaction recorded in Export History.`);
       } catch (err) {
         alert("Failed to process export: " + err.message);
       }
@@ -66,12 +80,10 @@ export default function ExportPage() {
 
   return (
     <div className="max-w-7xl mx-auto flex flex-col h-full relative">
-      
-      {/* Header & Search */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
         <div>
           <h2 className="text-xl font-extrabold text-textMain">Buyer Export & Outbound Shipping</h2>
-          <p className="text-xs font-semibold text-textMuted mt-0.5">Process cargo shipments to buyers, which will automatically deduct active warehouse stock.</p>
+          <p className="text-xs font-semibold text-textMuted mt-0.5">Process cargo shipments to buyers. Records will be safely archived in Export History.</p>
         </div>
         <div className="relative w-full md:w-80">
           <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
@@ -87,7 +99,6 @@ export default function ExportPage() {
         </div>
       </div>
 
-      {/* Export Table */}
       <div className="flex-1 bg-surface border border-borderLight rounded-2xl shadow-sm overflow-hidden flex flex-col">
         <div className="overflow-x-auto flex-1">
           <table className="w-full text-left border-collapse">
@@ -155,7 +166,6 @@ export default function ExportPage() {
           </table>
         </div>
       </div>
-
     </div>
   );
 }
