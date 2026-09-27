@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import EntryForm from './pages/EntryForm';
 import StockList from './pages/StockList';
+import SoList from './pages/SoList'; // 1. Impor komponen SoList
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -42,6 +43,10 @@ export default function App() {
           </div>
           <div className={`absolute inset-0 p-8 overflow-hidden transition-opacity duration-300 ${activeTab === 'stock' ? 'opacity-100 z-10 flex flex-col' : 'opacity-0 z-0 hidden'}`}>
             <StockList />
+          </div>
+          {/* 2. Render halaman SO List */}
+          <div className={`absolute inset-0 p-8 overflow-hidden transition-opacity duration-300 ${activeTab === 'solist' ? 'opacity-100 z-10 flex flex-col' : 'opacity-0 z-0 hidden'}`}>
+            <SoList />
           </div>
         </div>
 
