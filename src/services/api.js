@@ -1,6 +1,6 @@
 import { auth } from '../config/firebase';
 
-const API_URL = (import.meta.env.VITE_API_URL || '').replace(/\\/$/, '');
+const API_URL = import.meta.env.PROD ? '' : (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 
 async function request(path, options = {}) {
   const user = auth.currentUser;
