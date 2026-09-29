@@ -61,6 +61,10 @@
     @apply block text-xs font-bold text-textMuted mb-1.5;
   }
 
+
+  .badge-success { @apply inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-md text-[10px] font-extrabold; }
+  .badge-warning { @apply inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-md text-[10px] font-extrabold; }
+
   .btn-primary {
     @apply bg-primary hover:bg-primary-hover text-white px-5 py-3 rounded-lg font-bold text-sm transition-all duration-200 shadow-[0_4px_12px_rgba(79,70,229,0.25)] hover:shadow-[0_6px_15px_rgba(79,70,229,0.35)] hover:-translate-y-0.5;
   }
