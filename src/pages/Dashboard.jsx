@@ -25,6 +25,14 @@ function shortDate(value) {
     : date.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
 }
 
+function shortDateTime(value) {
+  if (!value) return '-';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? String(value)
+    : date.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
+}
+
 function percent(value) {
   return Math.max(0, Math.min(Number(value || 0), 100));
 }
@@ -57,25 +65,25 @@ export default function Dashboard() {
   const destinations = data?.destinationStats || [];
   const articles = data?.articleStats || [];
   const sizes = data?.sizeStats || [];
-  const daily = data?.dailyStats || [];
+  const activity = data?.lastUpdateStats || [];
   const planning = data?.planning || { rows: [], totalTarget: 0, totalActual: 0, totalShortage: 0, completionRate: 0, completed: 0, total: 0 };
 
   const maxSOQty = Math.max(...rows.slice(0, 10).map(row => Number(row.qty) || 0), 1);
   const maxDestinationQty = Math.max(...destinations.slice(0, 6).map(row => Number(row.qty) || 0), 1);
   const maxArticleQty = Math.max(...articles.slice(0, 6).map(row => Number(row.qty) || 0), 1);
-  const maxDailyQty = Math.max(...daily.map(row => Number(row.qty) || 0), 1);
+  const maxActivityQty = Math.max(...activity.map(row => Number(row.qty) || 0), 1);
   const maxSizeQty = Math.max(...sizes.slice(0, 8).map(row => Number(row.qty) || 0), 1);
 
-  const dailyPoints = useMemo(() => {
-    if (!daily.length) return '';
+  const activityPoints = useMemo(() => {
+    if (!activity.length) return '';
     const width = 700;
     const height = 190;
-    return daily.map((row, index) => {
-      const x = daily.length === 1 ? width / 2 : (index / (daily.length - 1)) * width;
-      const y = height - ((Number(row.qty) || 0) / maxDailyQty) * 150 - 15;
-      return `${x},${y}`;
+    return activity.map((row, index) => {
+      const x = activity.length === 1 ? width / 2 : (index / (activity.length - 1)) * width;
+      const y = height - ((Number(row.qty) || 0) / maxActivityQty) * 150 - 15;
+      return x + ',' + y;
     }).join(' ');
-  }, [daily, maxDailyQty]);
+  }, [activity, maxActivityQty]);
 
   return (
     <div className="max-w-[1500px] mx-auto space-y-6 pb-8">
@@ -113,26 +121,25 @@ export default function Dashboard() {
       </section>
 
       <section className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-        <Panel title="Inbound Volume Trend" subtitle="Daily received quantity — latest 14 days" icon={TrendingUp} className="xl:col-span-2">
-          {daily.length ? (
+        <Panel title="Inbound Last-Update Activity" subtitle="Warehouse quantity by latest record update" icon={Activity} className="xl:col-span-2">
+          {activity.length ? (
             <div className="overflow-x-auto">
-              <svg viewBox="0 0 700 230" className="w-full min-w-[620px] h-[250px]" role="img" aria-label="Inbound volume trend">
+              <svg viewBox="0 0 700 230" className="w-full min-w-[620px] h-[250px]" role="img" aria-label="Inbound last-update activity">
                 <line x1="0" y1="190" x2="700" y2="190" stroke="currentColor" className="text-borderLight"/>
                 <line x1="0" y1="40" x2="700" y2="40" stroke="currentColor" className="text-borderLight" strokeDasharray="4 5"/>
-                <polyline points={dailyPoints} fill="none" stroke="currentColor" className="text-primary" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
-                {daily.map((row, index) => {
-                  const x = daily.length === 1 ? 350 : (index / (daily.length - 1)) * 700;
-                  const y = 190 - ((Number(row.qty) || 0) / maxDailyQty) * 150;
-                  return <g key={row.date}><circle cx={x} cy={y} r="4.5" className="fill-primary"/><text x={x} y="215" textAnchor="middle" className="fill-textMuted text-[9px] font-bold">{shortDate(row.date)}</text></g>;
+                <polyline points={activityPoints} fill="none" stroke="currentColor" className="text-primary" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+                {activity.map((row, index) => {
+                  const x = activity.length === 1 ? 350 : (index / (activity.length - 1)) * 700;
+                  const y = 190 - ((Number(row.qty) || 0) / maxActivityQty) * 150;
+                  return <g key={row.so}><circle cx={x} cy={y} r="4.5" className="fill-primary"/><text x={x} y="215" textAnchor="middle" className="fill-textMuted text-[9px] font-bold">{row.so}</text></g>;
                 })}
               </svg>
               <div className="flex justify-between text-[10px] font-bold text-textMuted">
-                <span>Latest: {formatNumber(daily[daily.length - 1]?.qty)} pcs</span>
-                <span>{formatNumber(daily.reduce((sum, row) => sum + (Number(row.qty) || 0), 0))} pcs in period</span>
+                <span>Latest update: {shortDateTime(activity[activity.length - 1]?.lastUpdate)}</span>
+                <span>{formatNumber(activity.reduce((sum, row) => sum + (Number(row.qty) || 0), 0))} pcs across latest updates</span>
               </div>
             </div>
-          ) : <EmptyState/>}
-        </Panel>
+          ) : <EmptyState text="No last-update activity available."/>}
 
         <Panel title="Planning Performance" subtitle="Target vs actual inbound" icon={Target}>
           <div className="flex items-center gap-5 mb-5">
