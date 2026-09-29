@@ -84,7 +84,10 @@ export function buildWarehouseSummary(rows = []) {
       totalQty,
       updatedAt: Date.now()
     },
-    by_so: Object.fromEntries([...bySO.entries()].map(([so, value]) => [summaryKey(so), value])),
+    by_so: Object.fromEntries([...bySO.entries()].map(([so, value]) => [summaryKey(so), {
+      ...value,
+      sizes: [...value.sizes].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }))
+    }])),
     by_article: encodeMap(byArticle),
     by_destination: encodeMap(byDestination),
     by_size: encodeMap(bySize)
