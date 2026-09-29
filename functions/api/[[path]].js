@@ -324,8 +324,9 @@ async function handleExport(env, request, segments) {
     return json({ success: true, data });
   }
 
-  if (request.method === 'POST' && segments[1] === 'execute' && segments[2]) {
-    const so = decodeURIComponent(segments[2]).toUpperCase().trim();
+  if (request.method === 'POST' && ((segments[1] === 'execute' && segments[2]) || (segments[1] && segments[2] === 'execute'))) {
+    const rawSo = segments[1] === 'execute' ? segments[2] : segments[1];
+    const so = decodeURIComponent(rawSo).toUpperCase().trim();
     const value = await getInbound(env, request);
     const items = Object.entries(value)
       .filter(([, item]) => String(item?.so_number || '').toUpperCase().trim() === so)
