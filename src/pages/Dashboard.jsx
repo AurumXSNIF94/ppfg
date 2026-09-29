@@ -1,204 +1,234 @@
-import React, { useState } from 'react';
-import { 
-  LayoutGrid, Package, FileText, ClipboardList, Download, History, 
-  Moon, User, Box, FileDigit, Hash, MapPin, CheckSquare 
+import { useEffect, useMemo, useState } from 'react';
+import { onValue, ref } from 'firebase/database';
+import {
+  Activity,
+  ArrowUpRight,
+  Boxes,
+  CheckCircle2,
+  ChevronRight,
+  Clock3,
+  Database,
+  Globe2,
+  PackageCheck,
+  RefreshCw,
+  Server,
+  ShoppingCart,
+  Warehouse,
 } from 'lucide-react';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend 
-} from 'recharts';
+import { db } from '../config/firebase';
 
-export default function FGWHDashboard() {
-  const [chartView, setChartView] = useState('SO');
+const number = (value) => new Intl.NumberFormat('id-ID').format(Number(value) || 0);
 
-  // Dummy Data for Chart (Bisa diganti dengan state dari Firebase)
-  const dataVolume = [
-    { name: 'SO-6292', SOLID: 120, MIX: 30 },
-    { name: 'SO-6293', SOLID: 80, MIX: 15 },
-    { name: 'SO-6294', SOLID: 200, MIX: 50 },
-    { name: 'SO-6295', SOLID: 90, MIX: 0 },
-    { name: 'SO-6296', SOLID: 150, MIX: 25 },
-  ];
+function formatTime(value) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+}
 
-  // Dummy Data for Recent Activity Feed
-  const recentActivities = [
-    { id: 1, time: '14:30 WIB', so: '10206292', ctn: 5, inner: 60, type: 'SOLID' },
-    { id: 2, time: '14:15 WIB', so: '10206292', ctn: 2, inner: 24, type: 'MIX' },
-    { id: 3, time: '13:45 WIB', so: '10206295', ctn: 10, inner: 120, type: 'SOLID' },
-    { id: 4, time: '13:10 WIB', so: '10206296', ctn: 1, inner: 12, type: 'MIX' },
-    { id: 5, time: '11:20 WIB', so: '10206293', ctn: 20, inner: 240, type: 'SOLID' },
-  ];
+export default function Dashboard() {
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = onValue(ref(db, 'stok_inbound_wh'), (snapshot) => {
+      const rows = [];
+      snapshot.forEach((soNode) => {
+        const value = soNode.val() || {};
+        const master = value.informasi_master || {};
+        const cartons = value.karton || {};
+        const cartonRows = Object.entries(cartons).map(([id, carton]) => ({
+          id,
+          ...carton,
+        }));
+
+        rows.push({
+          id: soNode.key,
+          so: soNode.key?.replace(/^SO_/, '') || '-',
+          artikel: master.artikel || '-',
+          destination: master.destination || '-',
+          customer: master.wh_cust || '-',
+          terakhir_update: master.terakhir_update || null,
+          cartons: cartonRows,
+        });
+      });
+
+      rows.sort((a, b) => new Date(b.terakhir_update || 0) - new Date(a.terakhir_update || 0));
+      setOrders(rows);
+      setLastUpdated(new Date());
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const metrics = useMemo(() => {
+    const cartons = orders.flatMap((order) => order.cartons.map((carton) => ({ ...carton, so: order.so, artikel: order.artikel })));
+    const totalPcs = cartons.reduce((sum, carton) => sum + (Number(carton.isi_karton) || 0), 0);
+    const mix = cartons.filter((carton) => String(carton.size).toUpperCase() === 'MIX').length;
+    const solid = cartons.length - mix;
+    const destinations = new Set(orders.map((order) => order.destination).filter(Boolean));
+
+    return {
+      so: orders.length,
+      cartons: cartons.length,
+      pcs: totalPcs,
+      mix,
+      solid,
+      destinations: destinations.size,
+    };
+  }, [orders]);
+
+  const recentOrders = orders.slice(0, 6);
 
   return (
-    <div className="flex h-screen bg-[#f4f7fe] font-sans text-slate-800 overflow-hidden">
-      
-      {/* SIDEBAR (Dark Navy) */}
-      <aside className="w-20 bg-[#111827] flex flex-col items-center py-6 gap-8 z-20 shadow-xl">
-        <div className="text-white font-black text-xl tracking-wider">WMS</div>
-        <nav className="flex flex-col gap-4 w-full px-4">
-          <SidebarIcon icon={<LayoutGrid size={20} />} active />
-          <SidebarIcon icon={<Package size={20} />} />
-          <SidebarIcon icon={<FileText size={20} />} />
-          <SidebarIcon icon={<ClipboardList size={20} />} />
-          <SidebarIcon icon={<Download size={20} />} />
-          <SidebarIcon icon={<History size={20} />} />
-        </nav>
-      </aside>
-
-      {/* MAIN CONTENT AREA */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
-        
-        {/* HEADER */}
-        <header className="flex justify-between items-center px-8 py-6 bg-[#f4f7fe]/80 backdrop-blur-md z-10">
-          <div>
-            <h1 className="text-2xl font-extrabold text-slate-900 flex items-center gap-2">
-              Welcome back, <span className="text-indigo-600">Masfiyal Illah</span>
-            </h1>
-            <p className="text-sm font-semibold text-slate-500 mt-1">Finished Goods Inbound Control</p>
+    <div className="max-w-[1500px] mx-auto space-y-6 pb-8">
+      <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 text-primary text-xs font-black uppercase tracking-[0.16em]">
+            <Warehouse size={15} /> Finished Goods Warehouse
           </div>
-          <div className="flex items-center gap-4">
-            <button className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-indigo-600 shadow-sm transition-colors">
-              <Moon size={18} />
-            </button>
-            <div className="w-10 h-10 rounded-full bg-indigo-100 border border-indigo-200 flex items-center justify-center text-indigo-600 overflow-hidden shadow-sm">
-              <User size={20} />
+          <h2 className="text-2xl font-black tracking-tight text-textMain mt-1">Inbound Overview</h2>
+          <p className="text-sm font-medium text-textMuted mt-1">Real-time overview dari database Firebase WMS.</p>
+        </div>
+        <div className="flex items-center gap-3 text-xs font-bold text-textMuted">
+          <span className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Firebase Live
+          </span>
+          <span className="px-3 py-2 rounded-xl bg-surface border border-borderLight">Updated {lastUpdated ? lastUpdated.toLocaleTimeString('id-ID') : '-'}</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        <MetricCard icon={ShoppingCart} label="Active SO" value={number(metrics.so)} hint="Sales order tersimpan" tone="primary" />
+        <MetricCard icon={Boxes} label="Total Carton" value={number(metrics.cartons)} hint={`${number(metrics.solid)} Solid · ${number(metrics.mix)} Mix`} tone="emerald" />
+        <MetricCard icon={PackageCheck} label="Total Pieces" value={number(metrics.pcs)} hint="Isi carton ter-sync" tone="amber" />
+        <MetricCard icon={Globe2} label="Destination" value={number(metrics.destinations)} hint="Destination terdaftar" tone="rose" />
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <section className="xl:col-span-2 bg-surface rounded-2xl border border-borderLight shadow-soft overflow-hidden">
+          <div className="px-6 py-5 border-b border-borderLight flex items-center justify-between">
+            <div>
+              <h3 className="font-black text-textMain">Recent Inbound SO</h3>
+              <p className="text-xs font-medium text-textMuted mt-1">Data terbaru berdasarkan terakhir_update dari Firebase.</p>
             </div>
+            <Database size={19} className="text-primary" />
           </div>
-        </header>
 
-        {/* SCROLLABLE DASHBOARD CONTENT */}
-        <main className="flex-1 overflow-y-auto px-8 pb-8 pt-2 scroll-smooth">
-          
-          {/* 5 KPI CARDS ROW */}
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-            {/* Primary Highlight Card */}
-            <div className="bg-indigo-600 rounded-2xl p-5 shadow-lg shadow-indigo-200 flex items-center gap-4 text-white transform transition hover:-translate-y-1">
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-                <Box size={24} className="text-white" />
-              </div>
+          {loading ? <LoadingState /> : recentOrders.length === 0 ? <EmptyState /> : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-bgBody border-b border-borderLight">
+                  <tr>
+                    <th className="table-head">SO</th>
+                    <th className="table-head">Article</th>
+                    <th className="table-head">Destination</th>
+                    <th className="table-head text-center">Carton</th>
+                    <th className="table-head">Last Update</th>
+                    <th className="table-head"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-borderLight">
+                  {recentOrders.map((order) => (
+                    <tr key={order.id} className="hover:bg-indigo-50/30 transition-colors">
+                      <td className="table-cell font-black text-primary">{order.so}</td>
+                      <td className="table-cell font-bold">{order.artikel}</td>
+                      <td className="table-cell"><span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-50 border border-slate-100"><Globe2 size={12} />{order.destination}</span></td>
+                      <td className="table-cell text-center font-black">{number(order.cartons.length)}</td>
+                      <td className="table-cell text-textMuted">{formatTime(order.terakhir_update)}</td>
+                      <td className="table-cell text-right"><ChevronRight size={16} className="text-textMuted ml-auto" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        <section className="bg-surface rounded-2xl border border-borderLight shadow-soft overflow-hidden">
+          <div className="px-6 py-5 border-b border-borderLight">
+            <div className="flex items-center justify-between">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-100 mb-1">Total Cartons</p>
-                <h3 className="text-2xl font-black leading-none">1,240</h3>
+                <h3 className="font-black">Database Health</h3>
+                <p className="text-xs font-medium text-textMuted mt-1">Ringkasan struktur WMS Firebase.</p>
               </div>
+              <Server size={19} className="text-secondary" />
             </div>
-
-            {/* Standard Metrics Cards */}
-            <KPICard icon={<FileDigit size={24} className="text-emerald-600" />} bgIcon="bg-emerald-100" title="Active SOs" value="12" />
-            <KPICard icon={<Hash size={24} className="text-amber-600" />} bgIcon="bg-amber-100" title="Total Inner Boxes" value="14,880" />
-            <KPICard icon={<MapPin size={24} className="text-rose-600" />} bgIcon="bg-rose-100" title="Pending Putaway" value="45" />
-            <KPICard icon={<CheckSquare size={24} className="text-blue-600" />} bgIcon="bg-blue-100" title="Daily Target" value="85%" />
           </div>
-
-          {/* MAIN GRID: CHART & RECENT ACTIVITY */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            {/* 1. INBOUND TREND CHART (Takes 2 Columns) */}
-            <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-lg font-extrabold text-slate-800">Inbound Volume per SO</h2>
-                <div className="flex bg-slate-100 rounded-lg p-1">
-                  <button 
-                    onClick={() => setChartView('SO')}
-                    className={`px-4 py-1.5 rounded-md text-xs font-bold transition-colors ${chartView === 'SO' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'}`}
-                  >
-                    By Sales Order
-                  </button>
-                  <button 
-                    onClick={() => setChartView('Type')}
-                    className={`px-4 py-1.5 rounded-md text-xs font-bold transition-colors ${chartView === 'Type' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'}`}
-                  >
-                    By Type
-                  </button>
-                </div>
-              </div>
-              
-              <div className="flex-1 min-h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={dataVolume} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b', fontWeight: 600 }} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
-                    <Tooltip 
-                      cursor={{fill: 'rgba(226, 232, 240, 0.4)'}}
-                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontWeight: 'bold' }}
-                    />
-                    <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', fontWeight: 700, paddingTop: '20px' }} />
-                    <Bar dataKey="SOLID" stackId="a" fill="#4f46e5" radius={[0, 0, 4, 4]} barSize={32} />
-                    <Bar dataKey="MIX" stackId="a" fill="#cbd5e1" radius={[4, 4, 0, 0]} barSize={32} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* 2. RECENT INBOUNDS ACTIVITY FEED (Takes 1 Column) */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col">
-              <h2 className="text-lg font-extrabold text-slate-800 mb-6">Recent Inbounds</h2>
-              
-              <div className="flex flex-col gap-5 flex-1 overflow-y-auto pr-2">
-                {recentActivities.map((act) => (
-                  <div key={act.id} className="flex gap-4 items-start">
-                    
-                    {/* Timeline Node & Line */}
-                    <div className="flex flex-col items-center mt-1">
-                      <div className={`w-2.5 h-2.5 rounded-full ring-4 ring-offset-1 ${act.type === 'SOLID' ? 'bg-indigo-500 ring-indigo-50' : 'bg-amber-500 ring-amber-50'}`}></div>
-                      <div className="w-0.5 h-full bg-slate-100 mt-2 min-h-[30px]"></div>
-                    </div>
-                    
-                    {/* Activity Text Details */}
-                    <div className="flex-1 pb-1 border-b border-slate-50 last:border-none">
-                      <div className="flex justify-between items-start mb-1">
-                        <span className="text-[10px] font-black text-slate-400">{act.time}</span>
-                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-md ${act.type === 'SOLID' ? 'bg-slate-100 text-slate-600' : 'bg-amber-100 text-amber-700'}`}>
-                          {act.type}
-                        </span>
-                      </div>
-                      <p className="text-sm font-bold text-slate-800 leading-snug">
-                        SO <span className="text-indigo-600">{act.so}</span>
-                      </p>
-                      <p className="text-xs font-semibold text-slate-500 mt-0.5">
-                        {act.ctn} Cartons • {act.inner} Inner Boxes
-                      </p>
-                    </div>
-
-                  </div>
-                ))}
-              </div>
-              
-              <button className="mt-4 w-full py-2.5 bg-slate-50 text-indigo-600 font-extrabold text-xs rounded-xl border border-slate-100 hover:bg-indigo-50 transition-colors">
-                View All Logs
-              </button>
-            </div>
-            
+          <div className="p-6 space-y-3">
+            <HealthRow label="Firebase connection" value="Connected" good />
+            <HealthRow label="SO master" value={`${number(metrics.so)} records`} />
+            <HealthRow label="Karton nodes" value={`${number(metrics.cartons)} records`} />
+            <HealthRow label="Solid / Mix" value={`${number(metrics.solid)} / ${number(metrics.mix)}`} />
+            <HealthRow label="Destinations" value={`${number(metrics.destinations)} active`} />
           </div>
-        </main>
+          <div className="mx-6 mb-6 rounded-xl bg-indigo-50 border border-indigo-100 p-4">
+            <div className="flex items-start gap-3">
+              <Activity size={18} className="text-primary mt-0.5" />
+              <div>
+                <p className="text-xs font-black text-indigo-900">Live database listener aktif</p>
+                <p className="text-[11px] font-medium text-indigo-700 mt-1">Perubahan pada stok_inbound_wh akan langsung memperbarui dashboard.</p>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
+
+      <section className="bg-surface rounded-2xl border border-borderLight shadow-soft p-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-5">
+          <div>
+            <h3 className="font-black">Inbound Distribution</h3>
+            <p className="text-xs font-medium text-textMuted mt-1">Distribusi carton berdasarkan format yang tersimpan.</p>
+          </div>
+          <div className="flex gap-2 text-xs font-black">
+            <span className="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700">SOLID {number(metrics.solid)}</span>
+            <span className="px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700">MIX {number(metrics.mix)}</span>
+          </div>
+        </div>
+        <div className="h-3 rounded-full bg-slate-100 overflow-hidden flex">
+          <div className="bg-primary transition-all duration-500" style={{ width: `${metrics.cartons ? (metrics.solid / metrics.cartons) * 100 : 0}%` }} />
+          <div className="bg-amber-400 transition-all duration-500" style={{ width: `${metrics.cartons ? (metrics.mix / metrics.cartons) * 100 : 0}%` }} />
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-5">
+          <MiniStat label="SO" value={number(metrics.so)} icon={ShoppingCart} />
+          <MiniStat label="Carton" value={number(metrics.cartons)} icon={Boxes} />
+          <MiniStat label="Pieces" value={number(metrics.pcs)} icon={PackageCheck} />
+          <MiniStat label="Destinations" value={number(metrics.destinations)} icon={Globe2} />
+        </div>
+      </section>
     </div>
   );
 }
 
-/* =========================================
-   SUB-COMPONENTS (Helpers)
-   ========================================= */
-
-// 1. Sidebar Nav Icon Item
-function SidebarIcon({ icon, active = false }) {
+function MetricCard({ icon: Icon, label, value, hint, tone }) {
+  const tones = {
+    primary: 'bg-indigo-50 text-primary',
+    emerald: 'bg-emerald-50 text-emerald-600',
+    amber: 'bg-amber-50 text-amber-600',
+    rose: 'bg-rose-50 text-rose-600',
+  };
   return (
-    <div className={`w-12 h-12 flex items-center justify-center rounded-xl cursor-pointer transition-all ${active ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}>
-      {icon}
+    <div className="bg-surface rounded-2xl border border-borderLight shadow-soft p-5 hover:shadow-float transition-shadow">
+      <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${tones[tone]}`}><Icon size={21} /></div>
+      <p className="text-[10px] uppercase tracking-wider font-black text-textMuted mt-4">{label}</p>
+      <div className="flex items-end justify-between gap-2 mt-1">
+        <h3 className="text-2xl font-black tracking-tight">{value}</h3>
+        <ArrowUpRight size={15} className="text-textMuted mb-1" />
+      </div>
+      <p className="text-[11px] font-semibold text-textMuted mt-1 truncate">{hint}</p>
     </div>
   );
 }
 
-// 2. Standard White KPI Card Generator
-function KPICard({ icon, bgIcon, title, value }) {
-  return (
-    <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex items-center gap-4 transform transition hover:-translate-y-1 hover:shadow-md cursor-default">
-      <div className={`w-12 h-12 ${bgIcon} rounded-xl flex items-center justify-center`}>
-        {icon}
-      </div>
-      <div>
-        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">{title}</p>
-        <h3 className="text-2xl font-black text-slate-800 leading-none">{value}</h3>
-      </div>
-    </div>
-  );
+function HealthRow({ label, value, good = false }) {
+  return <div className="flex items-center justify-between rounded-xl bg-bgBody border border-borderLight px-4 py-3"><span className="text-xs font-bold text-textMuted">{label}</span><span className={`text-xs font-black flex items-center gap-1.5 ${good ? 'text-emerald-600' : 'text-textMain'}`}>{good && <CheckCircle2 size={13} />}{value}</span></div>;
 }
+
+function MiniStat({ label, value, icon: Icon }) {
+  return <div className="rounded-xl border border-borderLight p-4 flex items-center gap-3"><div className="w-9 h-9 rounded-lg bg-bgBody flex items-center justify-center text-primary"><Icon size={17} /></div><div><p className="text-[10px] uppercase font-black text-textMuted">{label}</p><p className="text-lg font-black">{value}</p></div></div>;
+}
+
+function LoadingState() { return <div className="p-12 text-center text-sm font-bold text-textMuted"><RefreshCw size={20} className="animate-spin mx-auto mb-3" />Loading Firebase data...</div>; }
+function EmptyState() { return <div className="p-12 text-center text-sm font-bold text-textMuted"><Clock3 size={20} className="mx-auto mb-3" />Belum ada data inbound.</div>; }
