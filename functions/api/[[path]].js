@@ -291,9 +291,49 @@ async function getDashboardInbound(env, request) {
   return Object.fromEntries(values.filter(([, value]) => value !== null));
 }
 
+function normalizeSO(value) {
+  return String(value || '').toUpperCase().trim().replace(/^SO_/, '');
+}
+
 async function getPlanning(env, request) {
   const value = await firebaseRequest(env, request, 'so_planning');
   return value && typeof value === 'object' ? value : {};
+}
+
+async function getPlanningActualMap(env, request, planningValue) {
+  const soList = [...new Set(
+    Object.values(planningValue || {})
+      .map(item => normalizeSO(item?.so_number))
+      .filter(Boolean)
+  )];
+
+  const map = new Map();
+  const concurrency = 6;
+
+  for (let i = 0; i < soList.length; i += concurrency) {
+    const batch = soList.slice(i, i + concurrency);
+    const values = await Promise.all(batch.map(async so => {
+      try {
+        const node = await firebaseRequest(
+          env,
+          request,
+          `stok_inbound_wh/${encodeURIComponent(soKey(so))}`
+        );
+        return [so, node];
+      } catch (error) {
+        console.warn('[PPFG Planning] SO read skipped:', so, error?.message || error);
+        return [so, null];
+      }
+    }));
+
+    for (const [so, node] of values) {
+      if (!node) continue;
+      const { bySO } = aggregateInbound({ [soKey(so)]: node });
+      map.set(so, bySO.get(so)?.qty || 0);
+    }
+  }
+
+  return map;
 }
 
 async function getHistory(env, request) {
@@ -347,9 +387,9 @@ async function handleDashboard(env, request) {
 
   const planning = Object.values(planningValue || {}).map(item => {
     const row = item || {};
-    const so = String(row.so_number || '').toUpperCase().trim();
+    const so = normalizeSO(row.so_number);
     const target = Number(row.target_qty) || 0;
-    const actual = bySO.get(so)?.qty || 0;
+    const actual = actualBySO.get(so) || 0;
     return {
       so_number: so,
       artikel: String(row.artikel || '-').toUpperCase(),
@@ -662,17 +702,14 @@ async function handlePlanning(env, request, segments) {
   const id = segments[1];
 
   if (request.method === 'GET' && !id) {
-    const [planningValue, inboundValue] = await Promise.all([
-      getPlanning(env, request),
-      getDashboardInbound(env, request)
-    ]);
-    const { bySO } = aggregateInbound(inboundValue);
+    const planningValue = await getPlanning(env, request);
+    const actualBySO = await getPlanningActualMap(env, request, planningValue);
 
     const data = Object.entries(planningValue).map(([key, item]) => {
       const row = item || {};
-      const so = String(row.so_number || '').toUpperCase().trim();
+      const so = normalizeSO(row.so_number);
       const target = Number(row.target_qty) || 0;
-      const actual = bySO.get(so)?.qty || 0;
+      const actual = actualBySO.get(so) || 0;
       return {
         id: key,
         ...row,
