@@ -1,3 +1,6 @@
 name = "ppfgwh"
 pages_build_output_dir = "./dist"
 compatibility_date = "2026-09-30"
+
+[vars]
+FIREBASE_DATABASE_URL = "https://ppfgwh-713a2-default-rtdb.asia-southeast1.firebasedatabase.app"
