@@ -66,7 +66,7 @@ export default function EntryForm() {
   return <div className="max-w-5xl mx-auto">
     <div className="bg-surface p-6 rounded-2xl shadow-sm border-l-4 border-primary mb-6">
       <h3 className="text-primary font-extrabold mb-1">⚡ Auto Pull Data (Google Sheets)</h3>
-      <p className="text-xs text-textMuted font-bold mb-4">Request sekarang melewati backend API.</p>
+      <p className="text-xs text-textMuted font-bold mb-4">Requests are processed through the backend API.</p>
       <div className="flex gap-4">
         <input className="form-input flex-1 uppercase" placeholder="Type SO Number..." value={tarikSo} onChange={e=>setTarikSo(e.target.value.toUpperCase())}/>
         <button onClick={handleSyncSheets} className="btn-primary w-32">SYNC</button>
@@ -97,7 +97,7 @@ export default function EntryForm() {
         <h3 className="text-xs font-extrabold text-textMuted uppercase mb-4">Carton Details</h3>
         {cartons.map(c=><div key={c.id} className="flex gap-4 mb-3">
           <input className={`form-input flex-1 uppercase ${jenis==='MIX'?'bg-slate-200':''}`} placeholder="Size" value={c.size} readOnly={jenis==='MIX'} onChange={e=>update(c.id,'size',e.target.value.toUpperCase())}/>
-          <input className="form-input flex-1 uppercase" placeholder="Ctn No." value={c.noKarton} onChange={e=>update(c.id,'noKarton',e.target.value.toUpperCase())}/>
+          <input className="form-input flex-1 uppercase" placeholder="Carton No." value={c.noKarton} onChange={e=>update(c.id,'noKarton',e.target.value.toUpperCase())}/>
           <input type="number" className="form-input flex-1" placeholder="Qty Pcs" value={c.qty} onChange={e=>update(c.id,'qty',e.target.value)}/>
           {cartons.length>1&&<button onClick={()=>setCartons(cartons.filter(x=>x.id!==c.id))} className="bg-red-100 text-red-600 px-4 rounded-lg font-bold">✕</button>}
         </div>)}
