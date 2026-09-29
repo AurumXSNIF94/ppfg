@@ -1,234 +1,227 @@
-import { useEffect, useMemo, useState } from 'react';
-import { onValue, ref } from 'firebase/database';
-import {
-  Activity,
-  ArrowUpRight,
-  Boxes,
-  CheckCircle2,
-  ChevronRight,
-  Clock3,
-  Database,
-  Globe2,
-  PackageCheck,
-  RefreshCw,
-  Server,
-  ShoppingCart,
-  Warehouse,
-} from 'lucide-react';
-import { db } from '../config/firebase';
-
-const number = (value) => new Intl.NumberFormat('id-ID').format(Number(value) || 0);
-
-function formatTime(value) {
-  if (!value) return '-';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
-}
+// src/Dashboard.jsx
+import React, { useState, useEffect } from 'react';
+import { ref, onValue } from 'firebase/database';
+import { database } from './firebase';
+import { Menu, X, LayoutDashboard, Package, FileText, Settings, Bell, Search, Box } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 export default function Dashboard() {
-  const [orders, setOrders] = useState([]);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [inboundData, setInboundData] = useState([]);
+  const [summary, setSummary] = useState({ totalSO: 0, totalKarton: 0, totalQty: 0 });
   const [loading, setLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState(null);
 
+  // SEDOT DATA FIREBASE SECARA REAL-TIME
   useEffect(() => {
-    const unsubscribe = onValue(ref(db, 'stok_inbound_wh'), (snapshot) => {
-      const rows = [];
-      snapshot.forEach((soNode) => {
-        const value = soNode.val() || {};
-        const master = value.informasi_master || {};
-        const cartons = value.karton || {};
-        const cartonRows = Object.entries(cartons).map(([id, carton]) => ({
-          id,
-          ...carton,
-        }));
+    const dbRef = ref(database, 'stok_inbound_wh');
+    
+    const unsubscribe = onValue(dbRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        let tempTotalKarton = 0;
+        let tempTotalQty = 0;
+        const chartData = [];
 
-        rows.push({
-          id: soNode.key,
-          so: soNode.key?.replace(/^SO_/, '') || '-',
-          artikel: master.artikel || '-',
-          destination: master.destination || '-',
-          customer: master.wh_cust || '-',
-          terakhir_update: master.terakhir_update || null,
-          cartons: cartonRows,
+        // Looping data Firebase lo yang strukturnya: SO_... -> informasi_master & karton
+        Object.keys(data).forEach((soKey) => {
+          const soData = data[soKey];
+          const info = soData.informasi_master || {};
+          const kartons = soData.karton || {};
+          
+          let soKartonCount = 0;
+          let soQtyCount = 0;
+
+          // Hitung qty dan jumlah karton per SO
+          Object.values(kartons).forEach((k) => {
+            soKartonCount += 1;
+            soQtyCount += Number(k.isi_karton) || 0;
+          });
+
+          tempTotalKarton += soKartonCount;
+          tempTotalQty += soQtyCount;
+
+          chartData.push({
+            soName: soKey.replace('SO_', ''),
+            artikel: info.artikel || '-',
+            whCust: info.wh_cust || '-',
+            qty: soQtyCount,
+            karton: soKartonCount,
+            lastUpdate: info.terakhir_update ? new Date(info.terakhir_update).toLocaleString('id-ID') : '-'
+          });
         });
-      });
 
-      rows.sort((a, b) => new Date(b.terakhir_update || 0) - new Date(a.terakhir_update || 0));
-      setOrders(rows);
-      setLastUpdated(new Date());
+        setSummary({
+          totalSO: Object.keys(data).length,
+          totalKarton: tempTotalKarton,
+          totalQty: tempTotalQty
+        });
+        
+        setInboundData(chartData);
+      } else {
+        setInboundData([]);
+        setSummary({ totalSO: 0, totalKarton: 0, totalQty: 0 });
+      }
       setLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
 
-  const metrics = useMemo(() => {
-    const cartons = orders.flatMap((order) => order.cartons.map((carton) => ({ ...carton, so: order.so, artikel: order.artikel })));
-    const totalPcs = cartons.reduce((sum, carton) => sum + (Number(carton.isi_karton) || 0), 0);
-    const mix = cartons.filter((carton) => String(carton.size).toUpperCase() === 'MIX').length;
-    const solid = cartons.length - mix;
-    const destinations = new Set(orders.map((order) => order.destination).filter(Boolean));
-
-    return {
-      so: orders.length,
-      cartons: cartons.length,
-      pcs: totalPcs,
-      mix,
-      solid,
-      destinations: destinations.size,
-    };
-  }, [orders]);
-
-  const recentOrders = orders.slice(0, 6);
-
   return (
-    <div className="max-w-[1500px] mx-auto space-y-6 pb-8">
-      <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-primary text-xs font-black uppercase tracking-[0.16em]">
-            <Warehouse size={15} /> Finished Goods Warehouse
+    <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
+      
+      {/* ========================================== */}
+      {/* SIDEBAR (Responsive) */}
+      {/* ========================================== */}
+      <aside 
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-slate-300 transition-transform duration-300 ease-in-out 
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 flex flex-col shadow-xl`}
+      >
+        <div className="flex items-center justify-between p-5 border-b border-slate-800">
+          <div className="flex items-center gap-2">
+            <div className="bg-blue-600 p-1.5 rounded-lg text-white">
+              <Box size={24} />
+            </div>
+            <span className="text-xl font-bold text-white tracking-wide">WMS<span className="text-blue-500">PRO</span></span>
           </div>
-          <h2 className="text-2xl font-black tracking-tight text-textMain mt-1">Inbound Overview</h2>
-          <p className="text-sm font-medium text-textMuted mt-1">Real-time overview dari database Firebase WMS.</p>
+          <button onClick={() => setIsSidebarOpen(false)} className="md:hidden">
+            <X className="w-6 h-6 hover:text-white" />
+          </button>
         </div>
-        <div className="flex items-center gap-3 text-xs font-bold text-textMuted">
-          <span className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Firebase Live
-          </span>
-          <span className="px-3 py-2 rounded-xl bg-surface border border-borderLight">Updated {lastUpdated ? lastUpdated.toLocaleTimeString('id-ID') : '-'}</span>
-        </div>
-      </div>
+        
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+          <a href="#" className="flex items-center gap-3 p-3 bg-blue-600/10 text-blue-500 rounded-xl font-medium border border-blue-600/20">
+            <LayoutDashboard size={20} /> Dashboard
+          </a>
+          <a href="#" className="flex items-center gap-3 p-3 hover:bg-slate-800 rounded-xl transition-colors hover:text-white">
+            <Package size={20} /> Data Inbound
+          </a>
+          <a href="#" className="flex items-center gap-3 p-3 hover:bg-slate-800 rounded-xl transition-colors hover:text-white">
+            <FileText size={20} /> Master Data
+          </a>
+        </nav>
+      </aside>
 
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        <MetricCard icon={ShoppingCart} label="Active SO" value={number(metrics.so)} hint="Sales order tersimpan" tone="primary" />
-        <MetricCard icon={Boxes} label="Total Carton" value={number(metrics.cartons)} hint={`${number(metrics.solid)} Solid · ${number(metrics.mix)} Mix`} tone="emerald" />
-        <MetricCard icon={PackageCheck} label="Total Pieces" value={number(metrics.pcs)} hint="Isi carton ter-sync" tone="amber" />
-        <MetricCard icon={Globe2} label="Destination" value={number(metrics.destinations)} hint="Destination terdaftar" tone="rose" />
-      </div>
+      {/* OVERLAY UNTUK MOBILE */}
+      {isSidebarOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 z-40 md:hidden backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)}></div>
+      )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <section className="xl:col-span-2 bg-surface rounded-2xl border border-borderLight shadow-soft overflow-hidden">
-          <div className="px-6 py-5 border-b border-borderLight flex items-center justify-between">
+      {/* ========================================== */}
+      {/* MAIN CONTENT AREA */}
+      {/* ========================================== */}
+      <main className="flex-1 flex flex-col min-w-0">
+        
+        {/* HEADER */}
+        <header className="flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200 z-10">
+          <div className="flex items-center gap-4">
+            <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition">
+              <Menu size={24} />
+            </button>
+            <div className="hidden md:flex items-center bg-slate-100 rounded-lg px-4 py-2 border border-slate-200">
+              <Search size={18} className="text-slate-400 mr-2" />
+              <input type="text" placeholder="Cari SO atau Artikel..." className="bg-transparent border-none focus:outline-none text-sm w-64 text-slate-700" />
+            </div>
+          </div>
+          <div className="flex items-center gap-5">
+            <div className="relative cursor-pointer">
+              <Bell size={22} className="text-slate-500 hover:text-slate-800" />
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+            </div>
+            <div className="w-9 h-9 rounded-full bg-gradient-to-r from-blue-600 to-blue-400 flex items-center justify-center text-white font-bold shadow-md cursor-pointer border-2 border-white">
+              MI
+            </div>
+          </div>
+        </header>
+
+        {/* CONTENT SCROLLABLE */}
+        <div className="flex-1 overflow-auto p-4 md:p-8">
+          <div className="flex justify-between items-end mb-8">
             <div>
-              <h3 className="font-black text-textMain">Recent Inbound SO</h3>
-              <p className="text-xs font-medium text-textMuted mt-1">Data terbaru berdasarkan terakhir_update dari Firebase.</p>
+              <h1 className="text-2xl font-bold text-slate-800">Overview Inbound</h1>
+              <p className="text-slate-500 text-sm mt-1">Pantau stok barang masuk secara real-time dari Gudang.</p>
             </div>
-            <Database size={19} className="text-primary" />
           </div>
+          
+          {loading ? (
+            <div className="flex items-center justify-center h-64 text-slate-500">Memuat data dari Firebase...</div>
+          ) : (
+            <>
+              {/* KARTU METRIK */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60 flex items-center gap-5">
+                  <div className="p-4 bg-blue-50 text-blue-600 rounded-xl"><FileText size={28} /></div>
+                  <div>
+                    <p className="text-sm text-slate-500 font-medium">Total SO Aktif</p>
+                    <p className="text-3xl font-bold text-slate-800">{summary.totalSO}</p>
+                  </div>
+                </div>
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60 flex items-center gap-5">
+                  <div className="p-4 bg-amber-50 text-amber-600 rounded-xl"><Package size={28} /></div>
+                  <div>
+                    <p className="text-sm text-slate-500 font-medium">Total Karton</p>
+                    <p className="text-3xl font-bold text-slate-800">{summary.totalKarton.toLocaleString('id-ID')}</p>
+                  </div>
+                </div>
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60 flex items-center gap-5">
+                  <div className="p-4 bg-emerald-50 text-emerald-600 rounded-xl"><LayoutDashboard size={28} /></div>
+                  <div>
+                    <p className="text-sm text-slate-500 font-medium">Total Qty (Pcs)</p>
+                    <p className="text-3xl font-bold text-slate-800">{summary.totalQty.toLocaleString('id-ID')}</p>
+                  </div>
+                </div>
+              </div>
 
-          {loading ? <LoadingState /> : recentOrders.length === 0 ? <EmptyState /> : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-bgBody border-b border-borderLight">
-                  <tr>
-                    <th className="table-head">SO</th>
-                    <th className="table-head">Article</th>
-                    <th className="table-head">Destination</th>
-                    <th className="table-head text-center">Carton</th>
-                    <th className="table-head">Last Update</th>
-                    <th className="table-head"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-borderLight">
-                  {recentOrders.map((order) => (
-                    <tr key={order.id} className="hover:bg-indigo-50/30 transition-colors">
-                      <td className="table-cell font-black text-primary">{order.so}</td>
-                      <td className="table-cell font-bold">{order.artikel}</td>
-                      <td className="table-cell"><span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-50 border border-slate-100"><Globe2 size={12} />{order.destination}</span></td>
-                      <td className="table-cell text-center font-black">{number(order.cartons.length)}</td>
-                      <td className="table-cell text-textMuted">{formatTime(order.terakhir_update)}</td>
-                      <td className="table-cell text-right"><ChevronRight size={16} className="text-textMuted ml-auto" /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+              {/* GRAFIK & TABEL */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                {/* GRAFIK */}
+                <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60">
+                  <h2 className="text-lg font-bold text-slate-800 mb-6">Grafik Volume per SO</h2>
+                  <div className="h-80 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={inboundData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                        <XAxis dataKey="soName" axisLine={false} tickLine={false} tick={{fill: '#64748B', fontSize: 12}} dy={10} />
+                        <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748B', fontSize: 12}} />
+                        <Tooltip cursor={{fill: '#F1F5F9'}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} />
+                        <Legend iconType="circle" wrapperStyle={{paddingTop: '20px'}}/>
+                        <Bar dataKey="qty" name="Total Qty" fill="#3B82F6" radius={[6, 6, 0, 0]} barSize={32} />
+                        <Bar dataKey="karton" name="Total Karton" fill="#F59E0B" radius={[6, 6, 0, 0]} barSize={32} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* TABEL REAL-TIME */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60 flex flex-col">
+                  <h2 className="text-lg font-bold text-slate-800 mb-4">Rincian SO Terbaru</h2>
+                  <div className="flex-1 overflow-auto pr-2">
+                    <div className="space-y-4">
+                      {inboundData.map((so, index) => (
+                        <div key={index} className="p-4 rounded-xl border border-slate-100 bg-slate-50 hover:bg-slate-100 transition">
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <span className="text-xs font-bold bg-blue-100 text-blue-700 px-2 py-1 rounded-md">SO {so.soName}</span>
+                              <p className="text-sm font-semibold text-slate-800 mt-2">{so.artikel}</p>
+                            </div>
+                            <span className="text-xs text-slate-500">{so.whCust}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-sm border-t border-slate-200 pt-2 mt-2">
+                            <span className="text-slate-600">📦 {so.karton} Karton</span>
+                            <span className="font-bold text-slate-800">{so.qty.toLocaleString('id-ID')} Pcs</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </>
           )}
-        </section>
-
-        <section className="bg-surface rounded-2xl border border-borderLight shadow-soft overflow-hidden">
-          <div className="px-6 py-5 border-b border-borderLight">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-black">Database Health</h3>
-                <p className="text-xs font-medium text-textMuted mt-1">Ringkasan struktur WMS Firebase.</p>
-              </div>
-              <Server size={19} className="text-secondary" />
-            </div>
-          </div>
-          <div className="p-6 space-y-3">
-            <HealthRow label="Firebase connection" value="Connected" good />
-            <HealthRow label="SO master" value={`${number(metrics.so)} records`} />
-            <HealthRow label="Karton nodes" value={`${number(metrics.cartons)} records`} />
-            <HealthRow label="Solid / Mix" value={`${number(metrics.solid)} / ${number(metrics.mix)}`} />
-            <HealthRow label="Destinations" value={`${number(metrics.destinations)} active`} />
-          </div>
-          <div className="mx-6 mb-6 rounded-xl bg-indigo-50 border border-indigo-100 p-4">
-            <div className="flex items-start gap-3">
-              <Activity size={18} className="text-primary mt-0.5" />
-              <div>
-                <p className="text-xs font-black text-indigo-900">Live database listener aktif</p>
-                <p className="text-[11px] font-medium text-indigo-700 mt-1">Perubahan pada stok_inbound_wh akan langsung memperbarui dashboard.</p>
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <section className="bg-surface rounded-2xl border border-borderLight shadow-soft p-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-5">
-          <div>
-            <h3 className="font-black">Inbound Distribution</h3>
-            <p className="text-xs font-medium text-textMuted mt-1">Distribusi carton berdasarkan format yang tersimpan.</p>
-          </div>
-          <div className="flex gap-2 text-xs font-black">
-            <span className="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700">SOLID {number(metrics.solid)}</span>
-            <span className="px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700">MIX {number(metrics.mix)}</span>
-          </div>
         </div>
-        <div className="h-3 rounded-full bg-slate-100 overflow-hidden flex">
-          <div className="bg-primary transition-all duration-500" style={{ width: `${metrics.cartons ? (metrics.solid / metrics.cartons) * 100 : 0}%` }} />
-          <div className="bg-amber-400 transition-all duration-500" style={{ width: `${metrics.cartons ? (metrics.mix / metrics.cartons) * 100 : 0}%` }} />
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-5">
-          <MiniStat label="SO" value={number(metrics.so)} icon={ShoppingCart} />
-          <MiniStat label="Carton" value={number(metrics.cartons)} icon={Boxes} />
-          <MiniStat label="Pieces" value={number(metrics.pcs)} icon={PackageCheck} />
-          <MiniStat label="Destinations" value={number(metrics.destinations)} icon={Globe2} />
-        </div>
-      </section>
+      </main>
     </div>
   );
 }
-
-function MetricCard({ icon: Icon, label, value, hint, tone }) {
-  const tones = {
-    primary: 'bg-indigo-50 text-primary',
-    emerald: 'bg-emerald-50 text-emerald-600',
-    amber: 'bg-amber-50 text-amber-600',
-    rose: 'bg-rose-50 text-rose-600',
-  };
-  return (
-    <div className="bg-surface rounded-2xl border border-borderLight shadow-soft p-5 hover:shadow-float transition-shadow">
-      <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${tones[tone]}`}><Icon size={21} /></div>
-      <p className="text-[10px] uppercase tracking-wider font-black text-textMuted mt-4">{label}</p>
-      <div className="flex items-end justify-between gap-2 mt-1">
-        <h3 className="text-2xl font-black tracking-tight">{value}</h3>
-        <ArrowUpRight size={15} className="text-textMuted mb-1" />
-      </div>
-      <p className="text-[11px] font-semibold text-textMuted mt-1 truncate">{hint}</p>
-    </div>
-  );
-}
-
-function HealthRow({ label, value, good = false }) {
-  return <div className="flex items-center justify-between rounded-xl bg-bgBody border border-borderLight px-4 py-3"><span className="text-xs font-bold text-textMuted">{label}</span><span className={`text-xs font-black flex items-center gap-1.5 ${good ? 'text-emerald-600' : 'text-textMain'}`}>{good && <CheckCircle2 size={13} />}{value}</span></div>;
-}
-
-function MiniStat({ label, value, icon: Icon }) {
-  return <div className="rounded-xl border border-borderLight p-4 flex items-center gap-3"><div className="w-9 h-9 rounded-lg bg-bgBody flex items-center justify-center text-primary"><Icon size={17} /></div><div><p className="text-[10px] uppercase font-black text-textMuted">{label}</p><p className="text-lg font-black">{value}</p></div></div>;
-}
-
-function LoadingState() { return <div className="p-12 text-center text-sm font-bold text-textMuted"><RefreshCw size={20} className="animate-spin mx-auto mb-3" />Loading Firebase data...</div>; }
-function EmptyState() { return <div className="p-12 text-center text-sm font-bold text-textMuted"><Clock3 size={20} className="mx-auto mb-3" />Belum ada data inbound.</div>; }
