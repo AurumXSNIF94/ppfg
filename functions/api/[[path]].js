@@ -268,6 +268,7 @@ function summaryIncrement(delta) {
 }
 
 function activeRowsForSO(topKey, node) {
+  if (!node || typeof node !== 'object') return [];
   return flattenInbound({ [topKey]: node }).filter(row => !row._emptySO);
 }
 
@@ -326,7 +327,6 @@ async function getPlanningActualMap(env, request, planningValue) {
   return map;
 }
 
-async function getHistory(env, request) {
 async function getHistory(env, request) {
   const value = await firebaseRequest(env, request, 'export_history');
   return value && typeof value === 'object' ? value : {};
@@ -630,7 +630,7 @@ async function handleSO(env, request) {
   return json({ success: true, data });
 }
 
-async function handleSODetail(env, request, soParam) {async function handleSODetail(env, request, soParam) {
+async function handleSODetail(env, request, soParam) {
   const so = String(soParam || '').toUpperCase().replace(/^SO_/, '').trim();
   if (!so) return json({ success: false, message: 'SO number is required.' }, 400);
 
@@ -672,7 +672,7 @@ async function handleSODetail(env, request, soParam) {async function handleSODet
     });
   }
 
-  const rows = flattenInbound(value).filter(row =>
+  const rows = flattenInbound({ [topKey]: parent }).filter(row =>
     !row._emptySO &&
     String(row.so_number || '').toUpperCase().replace(/^SO_/, '').trim() === so
   );
@@ -773,7 +773,7 @@ async function handlePlanning(env, request, segments) {
   return json({ success: false, message: 'Planning route not found.' }, 404);
 }
 
-async function handleExport(env, request, segments) {async function handleExport(env, request, segments) {
+async function handleExport(env, request, segments) {
   if (request.method === 'GET' && segments[1] === 'ready') {
     const value = await getInbound(env, request);
     const rows = flattenInbound(value).filter(row => !row._emptySO);
