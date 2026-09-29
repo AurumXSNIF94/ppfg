@@ -1,5 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import cors from 'cors';
 import { requireAuth } from './middleware/auth.js';
 import './firebase.js';
@@ -12,6 +14,8 @@ import planningRouter from './routes/planning.js';
 import exportRouter from './routes/export.js';
 
 const app = express();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const port = Number(process.env.PORT || 4000);
 
 app.use(cors({
@@ -31,6 +35,13 @@ app.use('/api/so', requireAuth, soRouter);
 app.use('/api/planning', requireAuth, planningRouter);
 app.use('/api/export', requireAuth, exportRouter);
 app.use('/api/gas', requireAuth, gasRouter);
+
+const distPath = path.resolve(__dirname, '../../dist');
+app.use(express.static(distPath));
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/')) return next();
+  res.sendFile(path.join(distPath, 'index.html'), (error) => { if (error) next(); });
+});
 
 app.use((error, _req, res, _next) => {
   console.error('[API]', error);
