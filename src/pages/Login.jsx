@@ -9,7 +9,7 @@ export default function Login() {
     } catch (error) {
       console.error("Login Error:", error);
       const message = error?.code === 'auth/unauthorized-domain'
-        ? 'Domain belum diizinkan Firebase Authentication. Tambahkan ppfgwh.pages.dev di Firebase Console → Authentication → Settings → Authorized domains.'
+        ? 'This domain is not authorized for Firebase Authentication. Add ppfgwh.pages.dev in Firebase Console → Authentication → Settings → Authorized domains.'
         : error?.message || 'Unknown authentication error.';
       alert('Failed to sign in with Google: ' + message);
     }
