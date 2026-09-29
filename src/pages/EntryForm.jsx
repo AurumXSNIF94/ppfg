@@ -14,7 +14,7 @@ export default function EntryForm() {
   const [cartons,setCartons]=useState([{id:Date.now(),size:'',noKarton:'',qty:''}]);
 
   const handleSyncSheets=async()=>{
-    if(!tarikSo)return setSyncStatus('❌ Masukkan SO terlebih dahulu.');
+    if(!tarikSo)return setSyncStatus('❌ Please enter an SO number first.');
     setSyncStatus('⏳ Syncing...');
     try{
       const r=await api.gas({so:tarikSo});
@@ -25,7 +25,7 @@ export default function EntryForm() {
         setArtikel((m.artikel||m.Article||'').toUpperCase());
         setDestination((m.destination||m.Destination||m.destinasi||'').toUpperCase());
       }
-      setSyncStatus('✅ SO data successfully pulled.');
+      setSyncStatus('✅ SO data successfully retrieved.');
     }catch(e){setSyncStatus('❌ '+e.message)}
   };
 
@@ -35,7 +35,7 @@ export default function EntryForm() {
   const save=async()=>{
     if(!soNumber||!artikel||!destination)return alert('SO, Article, and Destination are required.');
     const valid=cartons.filter(c=>c.size&&c.noKarton&&c.qty);
-    if(!valid.length)return alert('Isi minimal 1 detail karton.');
+    if(!valid.length)return alert('Please enter at least one carton detail.');
     setLoading(true);
     try{
       await api.inbound.create({
