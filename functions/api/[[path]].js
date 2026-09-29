@@ -560,7 +560,7 @@ async function handleInbound(env, request, segments) {
       const updates = {};
 
       for (const [key, value] of Object.entries(patch)) {
-        if (['so_number', 'jenis', 'artikel', 'destination', 'keterangan', 'tanggal', 'status'].includes(key)) {
+        if (['jenis', 'artikel', 'destination', 'keterangan', 'tanggal', 'status'].includes(key)) {
           updates[`stok_inbound_wh/${encodeURIComponent(topKey)}/informasi_master/${key}`] = value;
         }
       }
