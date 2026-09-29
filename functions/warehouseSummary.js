@@ -45,12 +45,14 @@ function aggregateSO(rows) {
       destination: String(row.destination || '-').toUpperCase(),
       qty: 0,
       karton: 0,
-      last_update: 0
+      last_update: 0,
+      sizes: new Set()
     };
     if (current.artikel === '-' && row.artikel) current.artikel = String(row.artikel).toUpperCase();
     if (current.destination === '-' && row.destination) current.destination = String(row.destination).toUpperCase();
     current.qty += Number(row.isi_karton) || 0;
     current.karton += 1;
+    if (row.size) current.sizes.add(String(row.size).toUpperCase());
     const stamp = Number(row.timestamp_in || 0) || new Date(row.lastUpdate || 0).getTime() || 0;
     current.last_update = Math.max(current.last_update, stamp);
     map.set(so, current);
@@ -151,6 +153,7 @@ export async function syncWarehouseSummary(firebaseRequest, env, request, before
     updates[`warehouse_summary/by_so/${key}/artikel`] = item.after.artikel;
     updates[`warehouse_summary/by_so/${key}/destination`] = item.after.destination;
     updates[`warehouse_summary/by_so/${key}/last_update`] = item.after.last_update || Date.now();
+    updates[`warehouse_summary/by_so/${key}/sizes`] = [...(item.after.sizes || [])].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
   }
 
   const dimensions = [
