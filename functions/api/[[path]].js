@@ -34,26 +34,32 @@ async function firebaseRequest(env, request, path, init = {}) {
   const url = new URL(`${dbUrl(env)}/${cleanPath}.json`);
   url.searchParams.set('auth', token);
 
-  const response = await fetch(url, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init.headers || {})
-    }
-  });
-
-  const text = await response.text();
+  let response;
+  let text = '';
   let data = null;
-  try { data = text ? JSON.parse(text) : null; } catch { data = text; }
 
-  if (!response.ok) {
-    const message = typeof data === 'object' && data?.error
-      ? data.error
-      : `Firebase request failed (${response.status})`;
-    throw new HttpError(response.status, message);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    response = await fetch(url, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(init.headers || {})
+      }
+    });
+    text = await response.text();
+    try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+
+    if (response.ok) return data;
+
+    // Firebase can transiently return 502/503/504. Retry before failing the API request.
+    if (![502, 503, 504].includes(response.status) || attempt === 2) break;
+    await new Promise(resolve => setTimeout(resolve, 250 * (attempt + 1)));
   }
 
-  return data;
+  const message = typeof data === 'object' && data?.error
+    ? data.error
+    : `Firebase request failed (${response?.status || 500})`;
+  throw new HttpError(response?.status || 500, message);
 }
 
 function todayISO() {
@@ -263,10 +269,14 @@ async function getHistory(env, request) {
 }
 
 async function handleDashboard(env, request) {
-  const [value, planningValue] = await Promise.all([
-    getInbound(env, request),
-    getPlanning(env, request)
-  ]);
+  // Planning data is supplemental; a temporary planning read failure must not take down the whole dashboard.
+  const value = await getInbound(env, request);
+  let planningValue = {};
+  try {
+    planningValue = await getPlanning(env, request);
+  } catch (error) {
+    console.warn('[PPFG Dashboard] Planning read skipped:', error?.message || error);
+  }
 
   const { rows, bySO } = aggregateInbound(value);
   const activeRows = rows.filter(row => !row._emptySO);
