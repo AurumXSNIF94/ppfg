@@ -47,16 +47,8 @@ export default function Dashboard() {
   const load = async () => {
     try {
       setError('');
-      const [result, planningResult] = await Promise.all([
-        api.dashboard(),
-        api.planning.list()
-      ]);
-      setData({
-        ...result.data,
-        // Use the exact same planning endpoint/data used by SO Planning.
-        // This prevents Dashboard planning metrics from drifting from the Planning page.
-        planning: buildPlanningSummary(planningResult.data || [])
-      });
+      const result = await api.dashboard();
+      setData(result.data);
     } catch (e) {
       setError(e.message);
     } finally {
