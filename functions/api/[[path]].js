@@ -219,54 +219,6 @@ function flattenInbound(value) {
   return rows;
 }
 
-function aggregateInbound(value) {
-  const rows = flattenInbound(value);
-  const bySO = new Map();
-
-  for (const row of rows) {
-    const key = normalizeSO(row.so_number || row.so_key) || '-';
-    if (!bySO.has(key)) {
-      bySO.set(key, {
-        so: key,
-        artikel: row.artikel || '-',
-        destination: String(row.destination || '-').toUpperCase(),
-        jenis: row.jenis || '-',
-        karton: 0,
-        qty: 0,
-        sizes: new Set(),
-        lastUpdate: row.lastUpdate || row.timestamp_in || 0
-      });
-    }
-
-    const current = bySO.get(key);
-    current.artikel = current.artikel === '-' && row.artikel ? row.artikel : current.artikel;
-    current.destination = current.destination === '-' && row.destination ? row.destination : current.destination;
-    current.jenis = current.jenis === '-' && row.jenis ? row.jenis : current.jenis;
-    if (row.size) current.sizes.add(row.size);
-    if (!row._emptySO) {
-      current.karton += 1;
-      current.qty += Number(row.isi_karton) || 0;
-    }
-    current.lastUpdate = Math.max(
-      Number(current.lastUpdate || 0),
-      Number(row.timestamp_in || 0),
-      new Date(row.lastUpdate || 0).getTime() || 0
-    );
-  }
-
-  return { rows, bySO };
-}
-
-
-function summaryKey(value) {
-  const bytes = new TextEncoder().encode(String(value ?? ''));
-  return [...bytes].map(byte => byte.toString(16).padStart(2, '0')).join('');
-}
-
-function summaryIncrement(delta) {
-  return { '.sv': { increment: Number(delta) || 0 } };
-}
-
 function activeRowsForSO(topKey, node) {
   if (!node || typeof node !== 'object') return [];
   return flattenInbound({ [topKey]: node }).filter(row => !row._emptySO);
@@ -277,37 +229,6 @@ async function getInbound(env, request) {
   return value && typeof value === 'object' ? value : {};
 }
 
-async function getDashboardInbound(env, request) {
-  // Dashboard only needs the list of SO nodes first. Reading the whole RTDB
-  // subtree in one request can exceed the upstream response limit, so always
-  // discover top-level SO keys with shallow=true and fetch each SO separately.
-  const keys = await firebaseRequest(env, request, 'stok_inbound_wh', {
-    method: 'GET',
-    query: { shallow: 'true' }
-  });
-
-  const entries = Object.keys(keys || {});
-  const values = [];
-
-  // Keep Firebase concurrency bounded so a large warehouse dataset does not
-  // create a burst of simultaneous requests from the Pages Function.
-  const concurrency = 6;
-  for (let i = 0; i < entries.length; i += concurrency) {
-    const batch = entries.slice(i, i + concurrency);
-    const batchValues = await Promise.all(batch.map(async key => {
-      try {
-        return [key, await firebaseRequest(env, request, `stok_inbound_wh/${encodeURIComponent(key)}`)];
-      } catch (error) {
-        console.warn('[PPFG Dashboard] SO read skipped:', key, error?.message || error);
-        return [key, null];
-      }
-    }));
-    values.push(...batchValues);
-  }
-
-  return Object.fromEntries(values.filter(([, value]) => value !== null));
-}
-
 function normalizeSO(value) {
   return String(value || '').toUpperCase().trim().replace(/^SO_/, '');
 }
@@ -315,16 +236,6 @@ function normalizeSO(value) {
 async function getPlanning(env, request) {
   const value = await firebaseRequest(env, request, 'so_planning');
   return value && typeof value === 'object' ? value : {};
-}
-
-async function getPlanningActualMap(env, request, planningValue) {
-  const summary = await getWarehouseSummary(env, request);
-  const map = new Map();
-  for (const row of Object.values(summary?.by_so || {})) {
-    const so = normalizeSO(row?.so_number);
-    if (so) map.set(so, Number(row?.qty) || 0);
-  }
-  return map;
 }
 
 async function getHistory(env, request) {
