@@ -261,30 +261,34 @@ async function getInbound(env, request) {
 }
 
 async function getDashboardInbound(env, request) {
-  try {
-    return await getInbound(env, request);
-  } catch (error) {
-    if (![502, 503, 504].includes(error?.status)) throw error;
+  // Dashboard only needs the list of SO nodes first. Reading the whole RTDB
+  // subtree in one request can exceed the upstream response limit, so always
+  // discover top-level SO keys with shallow=true and fetch each SO separately.
+  const keys = await firebaseRequest(env, request, 'stok_inbound_wh', {
+    method: 'GET',
+    query: { shallow: 'true' }
+  });
 
-    // Avoid a large root read when Firebase is temporarily unavailable for the full subtree.
-    // shallow=true returns only the top-level SO keys; each SO is then fetched independently.
-    const keys = await firebaseRequest(env, request, 'stok_inbound_wh', {
-      method: 'GET',
-      query: { shallow: 'true' }
-    });
+  const entries = Object.keys(keys || {});
+  const values = [];
 
-    const entries = Object.keys(keys || {});
-    const values = await Promise.all(entries.map(async key => {
+  // Keep Firebase concurrency bounded so a large warehouse dataset does not
+  // create a burst of simultaneous requests from the Pages Function.
+  const concurrency = 6;
+  for (let i = 0; i < entries.length; i += concurrency) {
+    const batch = entries.slice(i, i + concurrency);
+    const batchValues = await Promise.all(batch.map(async key => {
       try {
         return [key, await firebaseRequest(env, request, `stok_inbound_wh/${encodeURIComponent(key)}`)];
-      } catch (childError) {
-        console.warn('[PPFG Dashboard] SO read skipped:', key, childError?.message || childError);
+      } catch (error) {
+        console.warn('[PPFG Dashboard] SO read skipped:', key, error?.message || error);
         return [key, null];
       }
     }));
-
-    return Object.fromEntries(values.filter(([, value]) => value !== null));
+    values.push(...batchValues);
   }
+
+  return Object.fromEntries(values.filter(([, value]) => value !== null));
 }
 
 async function getPlanning(env, request) {
