@@ -222,7 +222,7 @@ function aggregateInbound(value) {
   const bySO = new Map();
 
   for (const row of rows) {
-    const key = row.so_number || row.so_key?.replace(/^SO_/, '') || '-';
+    const key = normalizeSO(row.so_number || row.so_key) || '-';
     if (!bySO.has(key)) {
       bySO.set(key, {
         so: key,
@@ -389,7 +389,7 @@ async function handleDashboard(env, request) {
     const row = item || {};
     const so = normalizeSO(row.so_number);
     const target = Number(row.target_qty) || 0;
-    const actual = actualBySO.get(so) || 0;
+    const actual = bySO.get(so)?.qty || 0;
     return {
       so_number: so,
       artikel: String(row.artikel || '-').toUpperCase(),
