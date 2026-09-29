@@ -7,6 +7,9 @@ import dashboardRouter from './routes/dashboard.js';
 import inboundRouter from './routes/inbound.js';
 import exportHistoryRouter from './routes/exportHistory.js';
 import gasRouter from './routes/gas.js';
+import soRouter from './routes/so.js';
+import planningRouter from './routes/planning.js';
+import exportRouter from './routes/export.js';
 
 const app = express();
 const port = Number(process.env.PORT || 4000);
@@ -24,6 +27,9 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/dashboard', requireAuth, dashboardRouter);
 app.use('/api/inbound', requireAuth, inboundRouter);
 app.use('/api/export-history', requireAuth, exportHistoryRouter);
+app.use('/api/so', requireAuth, soRouter);
+app.use('/api/planning', requireAuth, planningRouter);
+app.use('/api/export', requireAuth, exportRouter);
 app.use('/api/gas', requireAuth, gasRouter);
 
 app.use((error, _req, res, _next) => {
