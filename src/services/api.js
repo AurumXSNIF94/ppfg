@@ -42,7 +42,8 @@ export const api = {
   planning: {
     list: () => request('/api/planning'),
     create: (payload) => request('/api/planning', { method: 'POST', body: JSON.stringify(payload) }),
-    remove: (id) => request(`/api/planning/${encodeURIComponent(id)}`, { method: 'DELETE' })
+    remove: (id) => request(`/api/planning/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    pullFromSheets: (so) => request(`/api/gas?so=${encodeURIComponent(so)}`)
   },
   export: {
     ready: () => request('/api/export/ready'),
