@@ -1,6 +1,6 @@
 import { auth } from '../config/firebase';
 
-const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:4000').replace(/\/$/, '');
+const API_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 
 async function request(path, options = {}) {
   const user = auth.currentUser;
@@ -10,7 +10,8 @@ async function request(path, options = {}) {
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
       Authorization: `Bearer ${token}`,
       ...(options.headers || {})
     }
@@ -22,12 +23,23 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  health: () => fetch(`${API_URL}/api/health`).then(r => r.json()),
   dashboard: () => request('/api/dashboard'),
   inbound: {
     list: () => request('/api/inbound'),
     create: (payload) => request('/api/inbound', { method: 'POST', body: JSON.stringify(payload) }),
     update: (id, payload) => request(`/api/inbound/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(payload) }),
     remove: (id) => request(`/api/inbound/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  },
+  so: { list: () => request('/api/so') },
+  planning: {
+    list: () => request('/api/planning'),
+    create: (payload) => request('/api/planning', { method: 'POST', body: JSON.stringify(payload) }),
+    remove: (id) => request(`/api/planning/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  },
+  export: {
+    ready: () => request('/api/export/ready'),
+    execute: (so) => request(`/api/export/${encodeURIComponent(so)}/execute`, { method: 'POST' })
   },
   exportHistory: () => request('/api/export-history'),
   gas: (params = {}) => {
