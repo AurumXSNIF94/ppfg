@@ -3,10 +3,35 @@ import { FileSpreadsheet, RefreshCw, Search, X, Package, CalendarDays, Globe2, C
 import { api } from '../services/api';
 
 function formatNumber(value){return Number(value||0).toLocaleString('en-US');}
+function todayDate(){
+  const d=new Date();
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,'0');
+  const day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function displayDate(value){
+  const raw=value||todayDate();
+  const d=new Date(raw);
+  return Number.isNaN(d.getTime())?String(raw):d.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'2-digit'});
+}
 function formatDate(value){
   if(!value)return '-';
   const d=new Date(value);
-  return Number.isNaN(d.getTime())?String(value):d.toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'});
+  return Number.isNaN(d.getTime())?String(value):d.toLocaleString('en-US',{dateStyle:'medium',timeStyle:'short'});
+}
+function formatDestination(value){
+  return String(value||'-').trim().toUpperCase();
+}
+function formatCartonNo(value){
+  const raw=String(value??'').trim();
+  if(!raw)return '-';
+  const match=raw.match(/(?:KARTON|CARTON|CTN)[ _-]*(\d+)/i);
+  if(match)return match[1];
+  const hash=raw.match(/^#?\s*(\d+)$/);
+  if(hash)return hash[1];
+  const digits=raw.match(/\d+/);
+  return digits?digits[0]:raw;
 }
 
 export default function SoList(){
@@ -62,7 +87,7 @@ export default function SoList(){
                 <button type="button" onClick={()=>openDetail(r.so_number)} className="inline-flex items-center hover:underline focus:outline-none focus:ring-2 focus:ring-primary/30 rounded-md" title="View SO detail"><FileSpreadsheet size={15} className="mr-2"/>{r.so_number}</button>
               </td>
               <td className="px-6 py-4 font-bold">{r.artikel}</td>
-              <td className="px-6 py-4 text-xs font-semibold">{r.destination}</td>
+              <td className="px-6 py-4 text-xs font-semibold">{formatDestination(r.destination)}</td>
               <td className="px-6 py-4 text-center font-black">{formatNumber(r.total_cartons)}</td>
               <td className="px-6 py-4 text-center font-black">{formatNumber(r.total_pcs)}</td>
               <td className="px-6 py-4 text-xs font-bold text-textMuted">{r.sizes?.join(', ')||'-'}</td>
@@ -86,9 +111,9 @@ export default function SoList(){
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Info label="SO Number" value={selected.so_number}/>
             <Info label="Article" value={selected.master?.artikel}/>
-            <Info label="Destination" value={selected.master?.destination}/>
-            <Info label="Carton Type" value={selected.master?.jenis}/>
-            <Info label="Date" value={selected.master?.tanggal}/>
+            <Info label="Destination" value={formatDestination(selected.master?.destination)}/>
+            <Info label="Carton Type" value={(selected.master?.jenis||'SOLID').toUpperCase()}/>
+            <Info label="Date" value={displayDate(selected.master?.tanggal)}/>
             <Info label="Status" value={selected.master?.status}/>
             <Info label="Last Update" value={formatDate(selected.master?.terakhir_update||selected.master?.timestamp_in)}/>
             <Info label="Total Cartons" value={formatNumber(selected.summary?.total_cartons)}/>
@@ -102,9 +127,9 @@ export default function SoList(){
             <div className="px-4 py-3 border-b border-borderLight flex items-center gap-2"><ClipboardList size={16} className="text-primary"/><span className="font-black text-sm">Carton Details</span><span className="ml-auto text-xs font-bold text-textMuted">{formatNumber(selected.cartons?.length)} cartons</span></div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[650px] text-left">
-                <thead><tr className="bg-bgBody text-[10px] uppercase tracking-wider text-textMuted"><th className="px-4 py-3">#</th><th className="px-4 py-3">Date</th><th className="px-4 py-3">Size</th><th className="px-4 py-3">Carton No.</th><th className="px-4 py-3 text-right">Qty</th><th className="px-4 py-3">Status</th></tr></thead>
+                <thead><tr className="bg-bgBody text-[10px] uppercase tracking-wider text-textMuted"><th className="px-4 py-3">No</th><th className="px-4 py-3">Date</th><th className="px-4 py-3">Size</th><th className="px-4 py-3">Carton No.</th><th className="px-4 py-3 text-right">Qty</th><th className="px-4 py-3">Status</th></tr></thead>
                 <tbody className="divide-y divide-borderLight">
-                  {(selected.cartons||[]).map((c,i)=><tr key={c.id||i}><td className="px-4 py-3 text-xs font-bold text-textMuted">{i+1}</td><td className="px-4 py-3 text-xs">{c.tanggal||'-'}</td><td className="px-4 py-3 text-xs font-bold">{c.size||'-'}</td><td className="px-4 py-3 text-xs font-black">{c.nomor_karton || c.carton_key || '-'}</td><td className="px-4 py-3 text-xs font-black text-right">{formatNumber(c.isi_karton)}</td><td className="px-4 py-3 text-xs font-bold">{c.status||'-'}</td></tr>)}
+                  {(selected.cartons||[]).map((c,i)=><tr key={c.id||i}><td className="px-4 py-3 text-xs font-bold text-textMuted">{i+1}</td><td className="px-4 py-3 text-xs">{displayDate(c.tanggal)}</td><td className="px-4 py-3 text-xs font-bold">{c.size||'-'}</td><td className="px-4 py-3 text-xs font-black">{formatCartonNo(c.nomor_karton || c.carton_key)}</td><td className="px-4 py-3 text-xs font-black text-right">{formatNumber(c.isi_karton)}</td><td className="px-4 py-3 text-xs font-bold">{c.status||'-'}</td></tr>)}
                   {!selected.cartons?.length&&<tr><td colSpan="6" className="py-10 text-center text-xs font-bold text-textMuted">No carton details found.</td></tr>}
                 </tbody>
               </table>
