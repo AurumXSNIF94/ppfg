@@ -101,7 +101,22 @@ function normalizeStoredInbound(item = {}, context = {}) {
     destination: clean(row.destination ?? row.destinasi ?? row.Destination ?? row.dest ?? master.destination),
     jenis: clean(row.jenis ?? row.type ?? row.carton_type ?? master.jenis ?? master.type),
     size: clean(row.size ?? row.ukuran ?? row.Size),
-    nomor_karton: clean(row.nomor_karton ?? row.no_karton ?? row.noKarton ?? row.carton_no ?? row.cartonNumber),
+    nomor_karton: clean(
+      row.nomor_karton ??
+      row.no_karton ??
+      row.noKarton ??
+      row.nomorKarton ??
+      row.no_carton ??
+      row.noCarton ??
+      row.carton_no ??
+      row.cartonNo ??
+      row.carton_number ??
+      row.cartonNumber ??
+      row['No. Karton'] ??
+      row['No Karton'] ??
+      row['NOMOR KARTON'] ??
+      row['NO KARTON']
+    ),
     isi_karton: Number(row.isi_karton ?? row.qty ?? row.quantity ?? row.qty_pcs ?? row.jumlah ?? row.total_qty) || 0,
     tanggal: clean(row.tanggal ?? master.tanggal),
     keterangan: clean(row.keterangan ?? master.keterangan) || '',
