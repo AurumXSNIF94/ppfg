@@ -775,28 +775,15 @@ async function handlePlanning(env, request, segments) {
 
 async function handleExport(env, request, segments) {
   if (request.method === 'GET' && segments[1] === 'ready') {
-    const value = await getInbound(env, request);
-    const rows = flattenInbound(value).filter(row => !row._emptySO);
-    const map = {};
-
-    for (const row of rows) {
-      const so = String(row.so_number || 'UNKNOWN').toUpperCase().trim();
-      if (!map[so]) {
-        map[so] = {
-          so,
-          artikel: row.artikel || '-',
-          destination: row.destination || '-',
-          items: []
-        };
-      }
-      map[so].items.push(row);
-    }
-
-    const data = Object.values(map).map(row => ({
-      ...row,
-      total_cartons: row.items.length,
-      total_pcs: row.items.reduce((sum, item) => sum + (Number(item.isi_karton) || 0), 0)
-    }));
+    const summary = await ensureWarehouseSummary(env, request);
+    const data = Object.values(summary.by_so || {}).map(row => ({
+      so: normalizeSO(row.so_number),
+      artikel: row.artikel || '-',
+      destination: String(row.destination || '-').toUpperCase(),
+      items: [],
+      total_cartons: Number(row.karton) || 0,
+      total_pcs: Number(row.qty) || 0
+    })).sort((a, b) => String(a.so).localeCompare(String(b.so), undefined, { numeric: true }));
 
     return json({ success: true, data });
   }
