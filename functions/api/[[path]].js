@@ -159,8 +159,10 @@ function aggregateInbound(value) {
         so: key,
         artikel: row.artikel || '-',
         destination: row.destination || '-',
+        jenis: row.jenis || '-',
         karton: 0,
         qty: 0,
+        sizes: new Set(),
         lastUpdate: row.lastUpdate || row.timestamp_in || 0
       });
     }
@@ -168,6 +170,8 @@ function aggregateInbound(value) {
     const current = bySO.get(key);
     current.artikel = current.artikel === '-' && row.artikel ? row.artikel : current.artikel;
     current.destination = current.destination === '-' && row.destination ? row.destination : current.destination;
+    current.jenis = current.jenis === '-' && row.jenis ? row.jenis : current.jenis;
+    if (row.size) current.sizes.add(row.size);
     if (!row._emptySO) {
       current.karton += 1;
       current.qty += Number(row.isi_karton) || 0;
@@ -392,10 +396,10 @@ async function handleSO(env, request) {
     so_number: row.so,
     artikel: row.artikel,
     destination: row.destination,
-    jenis: '-',
+    jenis: row.jenis || '-',
     total_cartons: row.karton,
     total_pcs: row.qty,
-    sizes: [],
+    sizes: [...(row.sizes || [])],
     last_update: row.lastUpdate
   }));
   return json({ success: true, data });
