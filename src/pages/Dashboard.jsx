@@ -91,23 +91,24 @@ export default function Dashboard() {
         <MetricCard icon={TrendingUp} label="Avg Qty / SO" value={formatNumber(summary.avgQtyPerSO)} suffix="pcs"/>
       </section>
 
-      <section className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+      <section className="grid grid-cols-1 gap-5">
         <Panel title="Planning Performance" subtitle="Target vs actual inbound" icon={Target}>
-          <div className="flex items-center gap-5 mb-5">
-            <div className="relative w-28 h-28 shrink-0 rounded-full" style={{background:`conic-gradient(var(--color-primary) ${percent(planning.completionRate)}%, #E2E8F0 0)`}}>
-              <div className="absolute inset-3 rounded-full bg-surface flex flex-col items-center justify-center">
-                <span className="text-xl font-black">{percent(planning.completionRate)}%</span>
-                <span className="text-[8px] uppercase font-black text-textMuted">Complete</span>
+          <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6 items-stretch">
+            <div className="rounded-2xl border border-borderLight bg-bgBody/40 p-5 flex flex-col items-center justify-center">
+              <div className="relative w-32 h-32 rounded-full" style={{background:`conic-gradient(var(--color-primary) ${percent(planning.completionRate)}%, #E2E8F0 0)`}}>
+                <div className="absolute inset-3 rounded-full bg-surface flex flex-col items-center justify-center shadow-sm">
+                  <span className="text-2xl font-black">{percent(planning.completionRate)}%</span>
+                  <span className="text-[8px] uppercase tracking-wider font-black text-textMuted">Complete</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3 w-full mt-5">
+                <MiniStat label="Target" value={formatNumber(planning.totalTarget)} suffix="pcs"/>
+                <MiniStat label="Actual" value={formatNumber(planning.totalActual)} suffix="pcs"/>
+                <MiniStat label="Shortage" value={formatNumber(planning.totalShortage)} suffix="pcs"/>
+                <MiniStat label="Completed" value={`${planning.completed}/${planning.total}`} />
               </div>
             </div>
-            <div className="space-y-2 text-xs">
-              <StatLine label="Target" value={`${formatNumber(planning.totalTarget)} pcs`}/>
-              <StatLine label="Actual" value={`${formatNumber(planning.totalActual)} pcs`}/>
-              <StatLine label="Shortage" value={`${formatNumber(planning.totalShortage)} pcs`}/>
-              <StatLine label="Completed SO" value={`${planning.completed}/${planning.total}`}/>
-            </div>
-          </div>
-          <div className="space-y-3 max-h-[235px] overflow-auto pr-1">
+            <div className="space-y-3 max-h-[300px] overflow-auto pr-1">
             {planning.rows.slice(0, 7).map(row => (
               <div key={row.so_number} className="rounded-xl border border-borderLight p-3">
                 <div className="flex justify-between gap-3 text-[10px] font-black">
@@ -241,8 +242,8 @@ function BarRow({label,value,max}) {
   );
 }
 
-function StatLine({label,value}) {
-  return <div className="flex justify-between gap-5 min-w-[150px]"><span className="text-textMuted font-bold">{label}</span><span className="font-black">{value}</span></div>;
+function MiniStat({label,value,suffix=''}) {
+  return <div className="rounded-xl bg-surface border border-borderLight p-3"><p className="text-[9px] uppercase tracking-wider font-black text-textMuted">{label}</p><p className="text-sm font-black mt-1">{value} {suffix && <span className="text-[8px] text-textMuted">{suffix}</span>}</p></div>;
 }
 
 function EmptyState({text='No inbound data available.'}){return <div className="py-10 text-center text-xs font-bold text-textMuted">{text}</div>;}
