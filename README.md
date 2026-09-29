@@ -72,3 +72,10 @@ All application API routes require a valid Firebase ID token.
 
 ## Deployment
 Deploy frontend and backend separately. Set CLIENT_ORIGIN to the deployed frontend origin and VITE_API_URL to the public backend URL. Never expose Firebase Admin credentials to the browser.
+
+
+## Single-container production
+
+The included `Dockerfile` builds the Vite frontend and serves it from the Express backend. This avoids the browser calling `localhost` in production. Configure Firebase Admin credentials and `FIREBASE_DATABASE_URL`, then run `docker build -t ppfg-wms .` and `docker run --env-file backend/.env -p 4000:4000 ppfg-wms`. Open the deployed host; the same origin serves both the admin UI and `/api/*`.
+
+For local development, run the backend on port 4000 and the Vite frontend on port 5173. `vite.config.js` proxies `/api` to the backend, so `VITE_API_URL` can remain empty.
