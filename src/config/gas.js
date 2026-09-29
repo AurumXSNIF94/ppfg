@@ -4,25 +4,31 @@ export function getGasApiUrl() {
   return GAS_API_URL.replace(/\/$/, '');
 }
 
-export async function lookupSO(so) {
+async function request(params = '') {
   const base = getGasApiUrl();
   if (!base) throw new Error('VITE_GAS_API_URL belum diatur.');
-
-  const url = `${base}?so=${encodeURIComponent(so)}`;
-  const response = await fetch(url, { method: 'GET', cache: 'no-store' });
+  const response = await fetch(`${base}${params}`, { method: 'GET', cache: 'no-store' });
   if (!response.ok) throw new Error(`GAS HTTP ${response.status}`);
   return response.json();
 }
 
-export async function syncCartons(payload) {
-  const base = getGasApiUrl();
-  if (!base) throw new Error('VITE_GAS_API_URL belum diatur.');
-  if (!Array.isArray(payload) || payload.length === 0) {
-    return { success: true, updated: 0 };
-  }
+export function lookupSO(so) {
+  return request(`?so=${encodeURIComponent(so)}`);
+}
 
-  const url = `${base}?action=sync&payload=${encodeURIComponent(JSON.stringify(payload))}`;
-  const response = await fetch(url, { method: 'GET', cache: 'no-store' });
-  if (!response.ok) throw new Error(`GAS HTTP ${response.status}`);
-  return response.json();
+export function syncCartons(payload) {
+  if (!Array.isArray(payload) || payload.length === 0) return Promise.resolve({ success: true, updated: 0 });
+  return request(`?action=sync&payload=${encodeURIComponent(JSON.stringify(payload))}`);
+}
+
+export function getSyncStatus() {
+  return request('?action=status');
+}
+
+export function startSync() {
+  return request('?action=start-sync');
+}
+
+export function stopSync() {
+  return request('?action=stop-sync');
 }
