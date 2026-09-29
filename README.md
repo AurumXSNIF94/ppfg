@@ -86,7 +86,7 @@ For local development, run the backend on port 4000 and the Vite frontend on por
 Production uses the Pages Function at `/api/*`, so the frontend and API stay on the same origin:
 `https://ppfgwh.pages.dev/api/...`.
 
-Cloudflare Pages detects the root `functions/` directory automatically when the project is deployed from the connected Git repository. The current API uses the Firebase Realtime Database REST API with the signed-in user's Firebase ID token, so no Firebase service-account JSON is placed in the browser or Git repository. Firebase documents that ID tokens can authenticate REST requests and that database Security Rules still control access. cite not stored in repo
+Cloudflare Pages detects the root `functions/` directory automatically when the project is deployed from the connected Git repository. The current API uses the Firebase Realtime Database REST API with the signed-in user's Firebase ID token, so no Firebase service-account JSON is placed in the browser or Git repository. Firebase documents that ID tokens can authenticate REST requests and that database Security Rules still control access.
 
 In Cloudflare Pages:
 1. Open **Workers & Pages → ppfgwh → Settings → Variables and Secrets**.
