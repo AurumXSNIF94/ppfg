@@ -178,9 +178,10 @@ router.post('/', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
-router.patch('/:id(*)', async (req, res, next) => {
+router.patch('/*id', async (req, res, next) => {
   try {
-    const parts = String(req.params.id || '').split('/');
+    const rawId = Array.isArray(req.params.id) ? req.params.id.join('/') : req.params.id;
+    const parts = String(rawId || '').split('/');
     const topKey = parts[0];
     const cartonKey = parts.slice(1).join('/');
     const topRef = adminDb.ref(ROOT).child(topKey);
@@ -204,7 +205,7 @@ router.patch('/:id(*)', async (req, res, next) => {
 
       const cartonSnapshot = await topRef.child('karton').child(cartonKey).once('value');
       const item = cartonSnapshot.val();
-      return res.json({ success: true, data: { id: req.params.id, carton_key: cartonKey, ...normalizeStored(item, { ...master, ...updates.informasi_master }, cartonKey) } });
+      return res.json({ success: true, data: { id: rawId, carton_key: cartonKey, ...normalizeStored(item, { ...master, ...updates.informasi_master }, cartonKey) } });
     }
 
     if (parts.length >= 2) return res.status(404).json({ success: false, message: 'Inbound carton not found.' });
@@ -215,9 +216,10 @@ router.patch('/:id(*)', async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
-router.delete('/:id(*)', async (req, res, next) => {
+router.delete('/*id', async (req, res, next) => {
   try {
-    const parts = String(req.params.id || '').split('/');
+    const rawId = Array.isArray(req.params.id) ? req.params.id.join('/') : req.params.id;
+    const parts = String(rawId || '').split('/');
     const topRef = adminDb.ref(ROOT).child(parts[0]);
     const topSnapshot = await topRef.once('value');
     if (!topSnapshot.exists()) return res.status(404).json({ success: false, message: 'Inbound record not found.' });
@@ -228,7 +230,7 @@ router.delete('/:id(*)', async (req, res, next) => {
       const remaining = await topRef.child('karton').once('value');
       if (!remaining.exists()) await topRef.remove();
       else await topRef.child('informasi_master/terakhir_update').set(new Date().toISOString());
-      return res.json({ success: true, id: req.params.id });
+      return res.json({ success: true, id: rawId });
     }
 
     await topRef.remove();
