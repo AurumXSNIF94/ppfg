@@ -5,11 +5,17 @@ import { api } from '../services/api';
 function normalizeSheetPayload(payload) {
   const raw = Array.isArray(payload) ? payload : (payload?.data ?? payload?.rows ?? payload?.result ?? payload);
   if (Array.isArray(raw)) return raw;
-  if (raw && typeof raw === 'object') {
-    if (Array.isArray(raw.data)) return raw.data;
-    return Object.values(raw);
-  }
-  return [];
+  if (!raw || typeof raw !== 'object') return [];
+
+  if (Array.isArray(raw.data)) return raw.data;
+
+  // Support GAS responses keyed by SO, e.g. { "SO123": { article: "...", target: 100 } }.
+  return Object.entries(raw).map(([key, value]) => {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      return { ...value, so_number: value.so_number ?? value.so ?? value.SONumber ?? key };
+    }
+    return { so_number: key, value };
+  });
 }
 
 function pick(row, keys) {
@@ -54,7 +60,7 @@ export default function Planning() {
     try{
       const payload=await api.planning.pullFromSheets(form.so_number);
       const row=extractSheetRow(payload,form.so_number);
-      if(!row) throw new Error('SO data was not found in Google Sheets.');
+      if(!row) throw new Error('SO data was not found in Google Sheets. Please check the SO number.');
       const so=pick(row,['so','SO','so_number','SONumber','nomor_so']) || form.so_number;
       const artikel=pick(row,['artikel','Article','article','style','style_code']);
       const target=pick(row,['target_qty','targetQty','Target Qty','target','qty','quantity','total_qty','Total Qty','planned_qty','planning_qty']);
