@@ -26,10 +26,10 @@ export default function StockList(){
       <th className="py-4 px-6">Date</th><th className="py-4 px-6">SO</th><th className="py-4 px-6">Article</th><th className="py-4 px-6">Size</th><th className="py-4 px-6">Carton No.</th><th className="py-4 px-6">Qty Pcs</th><th className="py-4 px-6">Destination</th><th className="py-4 px-6 text-right">Actions</th>
      </tr></thead>
      <tbody className="divide-y divide-borderLight text-xs font-semibold">
-      {loading?<tr><td colSpan="9" className="text-center py-12">Loading...</td></tr>:filtered.map(d=><tr key={d.id} className="hover:bg-indigo-50/40">
+      {loading?<tr><td colSpan="8" className="text-center py-12">Loading...</td></tr>:filtered.map(d=><tr key={d.id} className="hover:bg-indigo-50/40">
        <td className="py-4 px-6">{formatDate(d.tanggal)}</td><td className="py-4 px-6 font-extrabold text-primary"><FileText size={14} className="inline mr-2"/>{d.so_number}</td><td className="py-4 px-6 font-bold">{d.artikel}</td><td className="py-4 px-6">{d.size}</td><td className="py-4 px-6">{formatCartonNo(d.nomor_karton)}</td><td className="py-4 px-6 font-black">{Number(d.isi_karton||0).toLocaleString()}</td><td className="py-4 px-6"><Globe size={12} className="inline mr-1 text-primary"/>{String(d.destination||'-').toUpperCase()}</td>
        <td className="py-4 px-6 text-right"><button onClick={()=>open(d)} className="p-2 text-primary"><Edit3 size={15}/></button><button onClick={()=>remove(d.id)} className="p-2 text-red-500"><Trash2 size={15}/></button></td>
-      </tr>)}{!loading&&!filtered.length&&<tr><td colSpan="9" className="text-center py-12 text-textMuted font-bold">No records found.</td></tr>}
+      </tr>)}{!loading&&!filtered.length&&<tr><td colSpan="8" className="text-center py-12 text-textMuted font-bold">No records found.</td></tr>}
      </tbody>
     </table>
    </div>
