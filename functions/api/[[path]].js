@@ -355,6 +355,18 @@ async function handleDashboard(env, request) {
   const activeRows = rows.filter(row => !row._emptySO);
   const allSO = [...bySO.values()];
 
+  // Planning actuals are calculated from the same SO-specific Firebase nodes
+  // used by the Planning page. This keeps Dashboard and SO Planning in sync
+  // even when the dashboard's bulk inbound aggregation skips a node.
+  let planningActualBySO = new Map();
+  if (Object.keys(planningValue).length) {
+    try {
+      planningActualBySO = await getPlanningActualMap(env, request, planningValue);
+    } catch (error) {
+      console.warn('[PPFG Dashboard] Planning actuals read skipped:', error?.message || error);
+    }
+  }
+
   const sumMap = (items, keyFn, qtyFn) => {
     const map = new Map();
     for (const item of items) {
@@ -389,7 +401,7 @@ async function handleDashboard(env, request) {
     const row = item || {};
     const so = normalizeSO(row.so_number);
     const target = Number(row.target_qty) || 0;
-    const actual = bySO.get(so)?.qty || 0;
+    const actual = planningActualBySO.get(so) || 0;
     return {
       so_number: so,
       artikel: String(row.artikel || '-').toUpperCase(),
@@ -728,7 +740,7 @@ async function handlePlanning(env, request, segments) {
 
   if (request.method === 'POST' && !id) {
     const body = await request.json().catch(() => ({}));
-    const so = String(body.so_number || '').toUpperCase().trim();
+    const so = normalizeSO(body.so_number);
     const artikel = String(body.artikel || '').toUpperCase().trim();
     const target = Number(body.target_qty) || 0;
     if (!so || !artikel || target <= 0) {
