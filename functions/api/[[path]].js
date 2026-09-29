@@ -447,7 +447,7 @@ async function handleSO(env, request) {
   const data = [...bySO.values()].map(row => ({
     so_number: row.so,
     artikel: row.artikel,
-    destination: row.destination,
+    destination: String(row.destination || '-').toUpperCase(),
     jenis: row.jenis || '-',
     total_cartons: row.karton,
     total_pcs: row.qty,
@@ -482,7 +482,7 @@ async function handleSODetail(env, request, soParam) {
       data: {
         so_number: so,
         master: {
-          tanggal: clean(master.tanggal),
+          tanggal: clean(master.tanggal) || todayISO(),
           jenis: inferredJenis.toUpperCase(),
           artikel: clean(master.artikel) || '-',
           destination: clean(master.destination || master.destinasi || '').toUpperCase() || '-',
@@ -518,10 +518,10 @@ async function handleSODetail(env, request, soParam) {
     data: {
       so_number: so,
       master: {
-        tanggal: first.tanggal || '-',
+        tanggal: first.tanggal || todayISO(),
         jenis: first.jenis || '-',
         artikel: first.artikel || '-',
-        destination: first.destination || '-',
+        destination: String(first.destination || '-').toUpperCase(),
         keterangan: first.keterangan || '',
         status: first.status || 'INBOUND',
         terakhir_update: first.lastUpdate || first.timestamp_in || null
@@ -648,7 +648,7 @@ async function handleExport(env, request, segments) {
       const history = {
         so_number: so,
         artikel: master.artikel || '-',
-        destination: master.destination || '-',
+        destination: String(master.destination || '-').toUpperCase(),
         total_cartons: items.length,
         total_pcs: totalPcs,
         export_date: new Date().toISOString().slice(0, 10),
