@@ -31,8 +31,10 @@ async function firebaseRequest(env, request, path, init = {}) {
   if (!token) throw new HttpError(401, 'Missing Bearer token.');
 
   const cleanPath = String(path || '').replace(/^\//, '');
+  const { query = {}, ...fetchInit } = init || {};
   const url = new URL(`${dbUrl(env)}/${cleanPath}.json`);
   url.searchParams.set('auth', token);
+  for (const [key, value] of Object.entries(query || {})) url.searchParams.set(key, String(value));
 
   let response;
   let text = '';
@@ -40,7 +42,7 @@ async function firebaseRequest(env, request, path, init = {}) {
 
   for (let attempt = 0; attempt < 3; attempt++) {
     response = await fetch(url, {
-      ...init,
+      ...fetchInit,
       headers: {
         'Content-Type': 'application/json',
         ...(init.headers || {})
@@ -258,6 +260,33 @@ async function getInbound(env, request) {
   return value && typeof value === 'object' ? value : {};
 }
 
+async function getDashboardInbound(env, request) {
+  try {
+    return await getInbound(env, request);
+  } catch (error) {
+    if (![502, 503, 504].includes(error?.status)) throw error;
+
+    // Avoid a large root read when Firebase is temporarily unavailable for the full subtree.
+    // shallow=true returns only the top-level SO keys; each SO is then fetched independently.
+    const keys = await firebaseRequest(env, request, 'stok_inbound_wh', {
+      method: 'GET',
+      query: { shallow: 'true' }
+    });
+
+    const entries = Object.keys(keys || {});
+    const values = await Promise.all(entries.map(async key => {
+      try {
+        return [key, await firebaseRequest(env, request, `stok_inbound_wh/${encodeURIComponent(key)}`)];
+      } catch (childError) {
+        console.warn('[PPFG Dashboard] SO read skipped:', key, childError?.message || childError);
+        return [key, null];
+      }
+    }));
+
+    return Object.fromEntries(values.filter(([, value]) => value !== null));
+  }
+}
+
 async function getPlanning(env, request) {
   const value = await firebaseRequest(env, request, 'so_planning');
   return value && typeof value === 'object' ? value : {};
@@ -270,7 +299,7 @@ async function getHistory(env, request) {
 
 async function handleDashboard(env, request) {
   // Planning data is supplemental; a temporary planning read failure must not take down the whole dashboard.
-  const value = await getInbound(env, request);
+  const value = await getDashboardInbound(env, request);
   let planningValue = {};
   try {
     planningValue = await getPlanning(env, request);
@@ -312,15 +341,17 @@ async function handleDashboard(env, request) {
     row => row.isi_karton
   ).slice(0, 15);
 
-  const dailyMap = new Map();
-  for (const row of activeRows) {
-    const date = clean(row.tanggal) || todayISO();
-    const current = dailyMap.get(date) || { date, qty: 0, cartons: 0 };
-    current.qty += Number(row.isi_karton) || 0;
-    current.cartons += 1;
-    dailyMap.set(date, current);
-  }
-  const dailyStats = [...dailyMap.values()].sort((a, b) => String(a.date).localeCompare(String(b.date))).slice(-14);
+  const lastUpdateStats = allSO
+    .filter(row => Number(row.lastUpdate || 0) > 0)
+    .sort((a, b) => Number(a.lastUpdate || 0) - Number(b.lastUpdate || 0))
+    .slice(-14)
+    .map(row => ({
+      so: row.so,
+      qty: Number(row.qty) || 0,
+      cartons: Number(row.karton) || 0,
+      lastUpdate: row.lastUpdate
+    }));
+
 
   const planning = Object.values(planningValue || {}).map(item => {
     const row = item || {};
