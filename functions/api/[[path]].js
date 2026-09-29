@@ -395,7 +395,7 @@ async function handleDashboard(env, request) {
       jenis: row.jenis || '-',
       karton: Number(row.karton) || 0,
       qty: Number(row.qty) || 0,
-      sizes: [],
+      sizes: Array.isArray(row.sizes) ? row.sizes : [],
       lastUpdate: row.last_update || 0
     }))
     .sort((a, b) => Number(b.lastUpdate || 0) - Number(a.lastUpdate || 0))
@@ -623,7 +623,7 @@ async function handleSO(env, request) {
     jenis: row.jenis || '-',
     total_cartons: Number(row.karton) || 0,
     total_pcs: Number(row.qty) || 0,
-    sizes: [],
+    sizes: Array.isArray(row.sizes) ? row.sizes : [],
     last_update: row.last_update || null
   })).sort((a, b) => String(a.so_number).localeCompare(String(b.so_number), undefined, { numeric: true }));
 
