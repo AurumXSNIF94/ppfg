@@ -1,7 +1,5 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { getDatabase } from 'firebase/database';
-
 const firebaseConfig = {
   apiKey: 'AIzaSyBdzBG3TmaL2-QNcdzOknlez3lMgkAV5mg',
   authDomain: 'ppfgwh-713a2.firebaseapp.com',
@@ -16,5 +14,3 @@ const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 export const provider = new GoogleAuthProvider();
-export const db = getDatabase(app);
-export const database = db;
