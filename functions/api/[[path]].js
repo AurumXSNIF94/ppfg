@@ -430,7 +430,7 @@ async function handleDashboard(env, request) {
   });
 }
 
-async function handleInbound(env, request, segments) {async function handleInbound(env, request, segments) {
+async function handleInbound(env, request, segments) {
   const method = request.method;
   const rawId = segments.slice(1).join('/');
   const id = rawId ? decodeURIComponent(rawId) : '';
