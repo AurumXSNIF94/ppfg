@@ -112,7 +112,7 @@ export default function SoList(){
             <Info label="SO Number" value={selected.so_number}/>
             <Info label="Article" value={selected.master?.artikel}/>
             <Info label="Destination" value={formatDestination(selected.master?.destination)}/>
-            <Info label="Carton Type" value={(selected.master?.jenis||'SOLID').toUpperCase()}/>
+            
             <Info label="Date" value={displayDate(selected.master?.tanggal)}/>
             <Info label="Status" value={selected.master?.status}/>
             <Info label="Last Update" value={formatDate(selected.master?.terakhir_update||selected.master?.timestamp_in)}/>
