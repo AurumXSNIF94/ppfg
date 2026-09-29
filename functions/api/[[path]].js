@@ -392,7 +392,7 @@ async function handleDashboard(env, request) {
       destinationStats,
       articleStats,
       sizeStats,
-      dailyStats,
+      lastUpdateStats,
       planning: {
         rows: planning.slice(0, 12),
         totalTarget,
@@ -593,7 +593,6 @@ async function handleSODetail(env, request, soParam) {
   const so = String(soParam || '').toUpperCase().replace(/^SO_/, '').trim();
   if (!so) return json({ success: false, message: 'SO number is required.' }, 400);
 
-  const value = await getInbound(env, request);
   const topKey = soKey(so);
   const parent = await firebaseRequest(env, request, `stok_inbound_wh/${encodeURIComponent(topKey)}`);
 
@@ -674,7 +673,7 @@ async function handlePlanning(env, request, segments) {
   if (request.method === 'GET' && !id) {
     const [planningValue, inboundValue] = await Promise.all([
       getPlanning(env, request),
-      getInbound(env, request)
+      getDashboardInbound(env, request)
     ]);
     const { bySO } = aggregateInbound(inboundValue);
 
