@@ -35,7 +35,10 @@ export const api = {
     update: (id, payload) => request(`/api/inbound/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(payload) }),
     remove: (id) => request(`/api/inbound/${encodeURIComponent(id)}`, { method: 'DELETE' })
   },
-  so: { list: () => request('/api/so') },
+  so: {
+    list: () => request('/api/so'),
+    detail: (so) => request(`/api/so/${encodeURIComponent(so)}`)
+  },
   planning: {
     list: () => request('/api/planning'),
     create: (payload) => request('/api/planning', { method: 'POST', body: JSON.stringify(payload) }),
