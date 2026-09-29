@@ -1,3 +1,5 @@
+import { getWarehouseSummary, rebuildWarehouseSummary, syncWarehouseSummary } from '../warehouseSummary.js';
+
 const JSON_HEADERS = {
   'Content-Type': 'application/json; charset=utf-8',
   'Cache-Control': 'no-store'
@@ -315,49 +317,39 @@ async function getPlanning(env, request) {
 }
 
 async function getPlanningActualMap(env, request, planningValue) {
-  const soList = [...new Set(
-    Object.values(planningValue || {})
-      .map(item => normalizeSO(item?.so_number))
-      .filter(Boolean)
-  )];
-
+  const summary = await getWarehouseSummary(env, request);
   const map = new Map();
-  const concurrency = 6;
-
-  for (let i = 0; i < soList.length; i += concurrency) {
-    const batch = soList.slice(i, i + concurrency);
-    const values = await Promise.all(batch.map(async so => {
-      try {
-        const node = await firebaseRequest(
-          env,
-          request,
-          `stok_inbound_wh/${encodeURIComponent(soKey(so))}`
-        );
-        return [so, node];
-      } catch (error) {
-        console.warn('[PPFG Planning] SO read skipped:', so, error?.message || error);
-        return [so, null];
-      }
-    }));
-
-    for (const [so, node] of values) {
-      if (!node) continue;
-      const { bySO } = aggregateInbound({ [soKey(so)]: node });
-      map.set(so, bySO.get(so)?.qty || 0);
-    }
+  for (const row of Object.values(summary?.by_so || {})) {
+    const so = normalizeSO(row?.so_number);
+    if (so) map.set(so, Number(row?.qty) || 0);
   }
-
   return map;
 }
 
+async function getHistory(env, request) {
 async function getHistory(env, request) {
   const value = await firebaseRequest(env, request, 'export_history');
   return value && typeof value === 'object' ? value : {};
 }
 
+async function ensureWarehouseSummary(env, request) {
+  const existing = await getWarehouseSummary(firebaseRequest, env, request);
+  if (existing && existing.version === 1) return existing;
+
+  const source = await getInbound(env, request);
+  const rows = flattenInbound(source);
+  return rebuildWarehouseSummary(firebaseRequest, env, request, rows);
+}
+
+function summaryRows(summary, group, limit = 20) {
+  return Object.values(summary?.[group] || {})
+    .filter(Boolean)
+    .sort((a, b) => (Number(b.qty) || 0) - (Number(a.qty) || 0))
+    .slice(0, limit);
+}
+
 async function handleDashboard(env, request) {
-  // Planning data is supplemental; a temporary planning read failure must not take down the whole dashboard.
-  const value = await getDashboardInbound(env, request);
+  const summary = await ensureWarehouseSummary(env, request);
   let planningValue = {};
   try {
     planningValue = await getPlanning(env, request);
@@ -365,51 +357,15 @@ async function handleDashboard(env, request) {
     console.warn('[PPFG Dashboard] Planning read skipped:', error?.message || error);
   }
 
-  const { rows, bySO } = aggregateInbound(value);
-  const activeRows = rows.filter(row => !row._emptySO);
-  const allSO = [...bySO.values()];
-
-  // Planning actuals are calculated from the same SO-specific Firebase nodes
-  // used by the Planning page. This keeps Dashboard and SO Planning in sync
-  // even when the dashboard's bulk inbound aggregation skips a node.
-  let planningActualBySO = new Map();
-  if (Object.keys(planningValue).length) {
-    try {
-      planningActualBySO = await getPlanningActualMap(env, request, planningValue);
-    } catch (error) {
-      console.warn('[PPFG Dashboard] Planning actuals read skipped:', error?.message || error);
-    }
-  }
-
-  const sumMap = (items, keyFn, qtyFn) => {
-    const map = new Map();
-    for (const item of items) {
-      const key = keyFn(item) || '-';
-      const current = map.get(key) || { name: key, qty: 0, cartons: 0 };
-      current.qty += Number(qtyFn(item) || 0);
-      current.cartons += 1;
-      map.set(key, current);
-    }
-    return [...map.values()].sort((a, b) => b.qty - a.qty);
-  };
-
-  const destinationStats = sumMap(
-    activeRows,
-    row => String(row.destination || '-').toUpperCase(),
-    row => row.isi_karton
-  ).slice(0, 10);
-
-  const articleStats = sumMap(
-    activeRows,
-    row => String(row.artikel || '-').toUpperCase(),
-    row => row.isi_karton
-  ).slice(0, 10);
-
-  const sizeStats = sumMap(
-    activeRows,
-    row => String(row.size || '-').toUpperCase(),
-    row => row.isi_karton
-  ).slice(0, 15);
+  const bySO = Object.values(summary.by_so || {});
+  const activeCartons = Number(summary.meta?.totalKarton) || 0;
+  const totalQty = Number(summary.meta?.totalQty) || 0;
+  const destinationStats = summaryRows(summary, 'by_destination', 10);
+  const articleStats = summaryRows(summary, 'by_article', 10);
+  const sizeStats = summaryRows(summary, 'by_size', 15);
+  const planningActualBySO = new Map(
+    bySO.map(row => [normalizeSO(row.so_number), Number(row.qty) || 0])
+  );
 
   const planning = Object.values(planningValue || {}).map(item => {
     const row = item || {};
@@ -431,7 +387,17 @@ async function handleDashboard(env, request) {
   const totalActual = planning.reduce((sum, row) => sum + row.actual_qty, 0);
   const completedPlanning = planning.filter(row => row.status === 'COMPLETED').length;
 
-  const recentSO = allSO
+  const recentSO = bySO
+    .map(row => ({
+      so: normalizeSO(row.so_number),
+      artikel: row.artikel || '-',
+      destination: String(row.destination || '-').toUpperCase(),
+      jenis: row.jenis || '-',
+      karton: Number(row.karton) || 0,
+      qty: Number(row.qty) || 0,
+      sizes: [],
+      lastUpdate: row.last_update || 0
+    }))
     .sort((a, b) => Number(b.lastUpdate || 0) - Number(a.lastUpdate || 0))
     .slice(0, 20);
 
@@ -439,12 +405,12 @@ async function handleDashboard(env, request) {
     success: true,
     data: {
       summary: {
-        totalSO: bySO.size,
-        totalKarton: activeRows.length,
-        totalQty: activeRows.reduce((sum, row) => sum + (Number(row.isi_karton) || 0), 0),
-        totalArticles: new Set(activeRows.map(row => row.artikel).filter(Boolean)).size,
-        totalDestinations: new Set(activeRows.map(row => String(row.destination || '-').toUpperCase())).size,
-        avgQtyPerSO: bySO.size ? Math.round(activeRows.reduce((sum, row) => sum + (Number(row.isi_karton) || 0), 0) / bySO.size) : 0
+        totalSO: Number(summary.meta?.totalSO) || bySO.length,
+        totalKarton: activeCartons,
+        totalQty,
+        totalArticles: Object.keys(summary.by_article || {}).length,
+        totalDestinations: Object.keys(summary.by_destination || {}).length,
+        avgQtyPerSO: bySO.length ? Math.round(totalQty / bySO.length) : 0
       },
       recentSO,
       destinationStats,
@@ -463,7 +429,8 @@ async function handleDashboard(env, request) {
     }
   });
 }
-async function handleInbound(env, request, segments) {
+
+async function handleInbound(env, request, segments) {async function handleInbound(env, request, segments) {
   const method = request.method;
   const rawId = segments.slice(1).join('/');
   const id = rawId ? decodeURIComponent(rawId) : '';
@@ -569,6 +536,14 @@ async function handleInbound(env, request, segments) {
       });
     }
 
+    const afterNode = await firebaseRequest(env, request, `stok_inbound_wh/${encodeURIComponent(targetSOKey)}`);
+    await syncWarehouseSummary(
+      firebaseRequest,
+      env,
+      request,
+      activeRowsForSO(targetSOKey, existing),
+      activeRowsForSO(targetSOKey, afterNode)
+    );
     return json({ success: true, data: created }, 201);
   }
 
@@ -580,6 +555,7 @@ async function handleInbound(env, request, segments) {
       const body = await request.json().catch(() => ({}));
       const patch = normalizeInbound(body);
       const existingSO = await firebaseRequest(env, request, `stok_inbound_wh/${encodeURIComponent(topKey)}`);
+      const beforeRows = activeRowsForSO(topKey, existingSO);
       const master = existingSO?.informasi_master || {};
       const updates = {};
 
@@ -595,17 +571,21 @@ async function handleInbound(env, request, segments) {
 
       await firebaseRequest(env, request, '', { method: 'PATCH', body: JSON.stringify(updates) });
       const value = await firebaseRequest(env, request, `stok_inbound_wh/${encodeURIComponent(topKey)}/karton/${encodeURIComponent(cartonKey)}`);
-      return json({ success: true, data: { id, ...normalizeStoredInbound(value, { soKey: topKey, master }) } });
+      const afterSO = await firebaseRequest(env, request, `stok_inbound_wh/${encodeURIComponent(topKey)}`);
+      await syncWarehouseSummary(firebaseRequest, env, request, beforeRows, activeRowsForSO(topKey, afterSO));
+      return json({ success: true, data: { id, ...normalizeStoredInbound(value, { soKey: topKey, master: afterSO?.informasi_master || master }) } });
     }
 
     const body = await request.json().catch(() => ({}));
     const patch = normalizeInbound(body);
+    const beforeValue = await firebaseRequest(env, request, `stok_inbound_wh/${encodeURIComponent(id)}`);
     await firebaseRequest(env, request, `stok_inbound_wh/${encodeURIComponent(id)}`, {
       method: 'PATCH',
       body: JSON.stringify({ ...patch, timestamp_in: Date.now() })
     });
     const value = await firebaseRequest(env, request, `stok_inbound_wh/${encodeURIComponent(id)}`);
     if (!value) return json({ success: false, message: 'Inbound record not found.' }, 404);
+    await syncWarehouseSummary(firebaseRequest, env, request, [normalizeStoredInbound(beforeValue, { soKey: id })], [normalizeStoredInbound(value, { soKey: id })]);
     return json({ success: true, data: { id, ...value } });
   }
 
@@ -616,7 +596,10 @@ async function handleInbound(env, request, segments) {
       const cartonKey = parts.slice(1).join('/');
       const parent = await firebaseRequest(env, request, `stok_inbound_wh/${encodeURIComponent(topKey)}`);
       if (isNestedSO(parent)) {
+        const beforeRows = activeRowsForSO(topKey, parent);
         await firebaseRequest(env, request, `stok_inbound_wh/${encodeURIComponent(topKey)}/karton/${encodeURIComponent(cartonKey)}`, { method: 'DELETE' });
+        const afterParent = await firebaseRequest(env, request, `stok_inbound_wh/${encodeURIComponent(topKey)}`);
+        await syncWarehouseSummary(firebaseRequest, env, request, beforeRows, activeRowsForSO(topKey, afterParent));
         return json({ success: true, id });
       }
     }
@@ -624,6 +607,7 @@ async function handleInbound(env, request, segments) {
     const current = await firebaseRequest(env, request, `stok_inbound_wh/${encodeURIComponent(id)}`);
     if (!current) return json({ success: false, message: 'Inbound record not found.' }, 404);
     await firebaseRequest(env, request, `stok_inbound_wh/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    await syncWarehouseSummary(firebaseRequest, env, request, [normalizeStoredInbound(current, { soKey: id })], []);
     return json({ success: true, id });
   }
 
@@ -631,22 +615,22 @@ async function handleInbound(env, request, segments) {
 }
 
 async function handleSO(env, request) {
-  const value = await getInbound(env, request);
-  const { bySO } = aggregateInbound(value);
-  const data = [...bySO.values()].map(row => ({
-    so_number: row.so,
-    artikel: row.artikel,
+  const summary = await ensureWarehouseSummary(env, request);
+  const data = Object.values(summary.by_so || {}).map(row => ({
+    so_number: normalizeSO(row.so_number),
+    artikel: row.artikel || '-',
     destination: String(row.destination || '-').toUpperCase(),
     jenis: row.jenis || '-',
-    total_cartons: row.karton,
-    total_pcs: row.qty,
-    sizes: [...(row.sizes || [])],
-    last_update: row.lastUpdate
-  }));
+    total_cartons: Number(row.karton) || 0,
+    total_pcs: Number(row.qty) || 0,
+    sizes: [],
+    last_update: row.last_update || null
+  })).sort((a, b) => String(a.so_number).localeCompare(String(b.so_number), undefined, { numeric: true }));
+
   return json({ success: true, data });
 }
 
-async function handleSODetail(env, request, soParam) {
+async function handleSODetail(env, request, soParam) {async function handleSODetail(env, request, soParam) {
   const so = String(soParam || '').toUpperCase().replace(/^SO_/, '').trim();
   if (!so) return json({ success: false, message: 'SO number is required.' }, 400);
 
@@ -729,7 +713,10 @@ async function handlePlanning(env, request, segments) {
 
   if (request.method === 'GET' && !id) {
     const planningValue = await getPlanning(env, request);
-    const actualBySO = await getPlanningActualMap(env, request, planningValue);
+    const summary = await ensureWarehouseSummary(env, request);
+    const actualBySO = new Map(
+      Object.values(summary.by_so || {}).map(row => [normalizeSO(row.so_number), Number(row.qty) || 0])
+    );
 
     const data = Object.entries(planningValue).map(([key, item]) => {
       const row = item || {};
@@ -786,7 +773,7 @@ async function handlePlanning(env, request, segments) {
   return json({ success: false, message: 'Planning route not found.' }, 404);
 }
 
-async function handleExport(env, request, segments) {
+async function handleExport(env, request, segments) {async function handleExport(env, request, segments) {
   if (request.method === 'GET' && segments[1] === 'ready') {
     const value = await getInbound(env, request);
     const rows = flattenInbound(value).filter(row => !row._emptySO);
@@ -843,6 +830,7 @@ async function handleExport(env, request, segments) {
 
       const updates = { [`export_history/${historyKey}`]: history, [`stok_inbound_wh/${topKey}`]: null };
       await firebaseRequest(env, request, '', { method: 'PATCH', body: JSON.stringify(updates) });
+      await syncWarehouseSummary(firebaseRequest, env, request, items, []);
       return json({ success: true, data: { id: historyKey, ...history } });
     }
 
@@ -866,6 +854,7 @@ async function handleExport(env, request, segments) {
     const updates = { [`export_history/${historyKey}`]: history };
     for (const row of rows) updates[`stok_inbound_wh/${row.id}`] = null;
     await firebaseRequest(env, request, '', { method: 'PATCH', body: JSON.stringify(updates) });
+    await syncWarehouseSummary(firebaseRequest, env, request, rows, []);
     return json({ success: true, data: { id: historyKey, ...history } });
   }
 
@@ -927,6 +916,15 @@ export async function onRequest(context) {
     if (!dbUrl(env)) return json({ success: false, message: 'FIREBASE_DATABASE_URL is not configured.' }, 500);
 
     if (route === 'dashboard') return handleDashboard(env, request);
+    if (route === 'warehouse-summary' && request.method === 'GET') {
+      const summary = await ensureWarehouseSummary(env, request);
+      return json({ success: true, data: summary });
+    }
+    if (route === 'warehouse-summary/rebuild' && request.method === 'POST') {
+      const source = await getInbound(env, request);
+      const summary = await rebuildWarehouseSummary(firebaseRequest, env, request, flattenInbound(source));
+      return json({ success: true, data: summary });
+    }
     if (route === 'inbound' || route.startsWith('inbound/')) return handleInbound(env, request, path);
     if (route.startsWith('so/') && path.length >= 2 && request.method === 'GET') return handleSODetail(env, request, path[1]);
     if (route === 'so') return handleSO(env, request);
