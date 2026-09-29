@@ -57,7 +57,7 @@ export default function EntryForm() {
       setKeterangan('');
       setTarikSo('');
       setSyncStatus('');
-      setCartons([{id:Date.now(),size:jenis==='MIX'?'-':'',noKarton:'',qty:''}]);
+      setCartons([{id:Date.now(),size:'',noKarton:'',qty:''}]);
     }catch(e){alert('API Error: '+e.message)}
     finally{setLoading(false)}
   };
@@ -90,7 +90,7 @@ export default function EntryForm() {
       <div className="bg-bgBody border border-dashed border-slate-300 p-6 rounded-xl mb-6">
         <h3 className="text-xs font-extrabold text-textMuted uppercase mb-4">Carton Details</h3>
         {cartons.map(c=><div key={c.id} className="flex gap-4 mb-3">
-          <input className="form-input flex-1 uppercase" placeholder="Size" value={c.size} readOnly={jenis==='MIX'} onChange={e=>update(c.id,'size',e.target.value.toUpperCase())}/>
+          <input className="form-input flex-1 uppercase" placeholder="Size" value={c.size} readOnly={false} onChange={e=>update(c.id,'size',e.target.value.toUpperCase())}/>
           <input className="form-input flex-1 uppercase" placeholder="Carton No." value={c.noKarton} onChange={e=>update(c.id,'noKarton',e.target.value.toUpperCase())}/>
           <input type="number" className="form-input flex-1" placeholder="Qty Pcs" value={c.qty} onChange={e=>update(c.id,'qty',e.target.value)}/>
           {cartons.length>1&&<button onClick={()=>setCartons(cartons.filter(x=>x.id!==c.id))} className="bg-red-100 text-red-600 px-4 rounded-lg font-bold">✕</button>}
