@@ -21,24 +21,6 @@ function percent(value) {
   return Math.max(0, Math.min(Number(value || 0), 100));
 }
 
-function buildPlanningSummary(rows = []) {
-  const planning = Array.isArray(rows) ? rows : [];
-  const totalTarget = planning.reduce((sum, row) => sum + (Number(row.target_qty) || 0), 0);
-  const totalActual = planning.reduce((sum, row) => sum + (Number(row.actual_qty) || 0), 0);
-  const totalShortage = planning.reduce((sum, row) => sum + (Number(row.shortage) || 0), 0);
-  const completed = planning.filter(row => String(row.status || '').toUpperCase() === 'COMPLETED').length;
-
-  return {
-    rows: planning,
-    totalTarget,
-    totalActual,
-    totalShortage,
-    completionRate: totalTarget ? Math.min(Math.round((totalActual / totalTarget) * 100), 100) : 0,
-    completed,
-    total: planning.length
-  };
-}
-
 export default function Dashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
