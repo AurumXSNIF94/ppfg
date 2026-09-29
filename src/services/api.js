@@ -43,7 +43,7 @@ export const api = {
   },
   export: {
     ready: () => request('/api/export/ready'),
-    execute: (so) => request(`/api/export/execute/${encodeURIComponent(so)}`, { method: 'POST' })
+    execute: (so) => request(`/api/export/${encodeURIComponent(so)}/execute`, { method: 'POST' })
   },
   exportHistory: () => request('/api/export-history'),
   gas: (params = {}) => {
