@@ -468,6 +468,7 @@ async function handleSODetail(env, request, soParam) {
 
     const sizes = [...new Set(cartons.map(item => item.size).filter(Boolean))];
     const totalPcs = cartons.reduce((sum, item) => sum + (Number(item.isi_karton) || 0), 0);
+    const inferredJenis = clean(master.jenis || master.type || '') || (sizes.length > 1 ? 'MIX' : 'SOLID');
 
     return json({
       success: true,
@@ -475,9 +476,9 @@ async function handleSODetail(env, request, soParam) {
         so_number: so,
         master: {
           tanggal: clean(master.tanggal),
-          jenis: clean(master.jenis) || '-',
+          jenis: inferredJenis.toUpperCase(),
           artikel: clean(master.artikel) || '-',
-          destination: clean(master.destination) || '-',
+          destination: clean(master.destination || master.destinasi || '').toUpperCase() || '-',
           keterangan: clean(master.keterangan) || '',
           status: clean(master.status) || 'INBOUND',
           terakhir_update: master.terakhir_update || master.timestamp_in || null
