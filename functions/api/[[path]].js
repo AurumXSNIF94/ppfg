@@ -56,7 +56,12 @@ async function firebaseRequest(env, request, path, init = {}) {
   return data;
 }
 
-function todayISO() {\n  const d = new Date();\n  return d.toISOString().slice(0, 10);\n}\n\nfunction clean(value) {
+function todayISO() {
+  const d = new Date();
+  return d.toISOString().slice(0, 10);
+}
+
+function clean(value) {
   return typeof value === 'string' ? value.trim() : value;
 }
 
@@ -90,7 +95,7 @@ function isNestedSO(node) {
 function normalizeCartonNumber(value) {
   const raw = String(value ?? '').trim();
   if (!raw) return undefined;
-  const match = raw.match(/(?:KARTON|CARTON|CTN)[ _-]*(\\d+)/i) || raw.match(/^#?\\s*(\\d+)$/) || raw.match(/\\d+/);
+  const match = raw.match(/(?:KARTON|CARTON|CTN)[ _-]*(\d+)/i) || raw.match(/^#?\\s*(\d+)$/) || raw.match(/\d+/);
   return match ? match[1] : raw.replace(/^#/, '').trim();
 }
 
@@ -254,9 +259,76 @@ async function getHistory(env, request) {
 }
 
 async function handleDashboard(env, request) {
-  const value = await getInbound(env, request);
-  const { bySO } = aggregateInbound(value);
-  const recentSO = [...bySO.values()]
+  const [value, planningValue] = await Promise.all([
+    getInbound(env, request),
+    getPlanning(env, request)
+  ]);
+
+  const { rows, bySO } = aggregateInbound(value);
+  const activeRows = rows.filter(row => !row._emptySO);
+  const allSO = [...bySO.values()];
+
+  const sumMap = (items, keyFn, qtyFn) => {
+    const map = new Map();
+    for (const item of items) {
+      const key = keyFn(item) || '-';
+      const current = map.get(key) || { name: key, qty: 0, cartons: 0 };
+      current.qty += Number(qtyFn(item) || 0);
+      current.cartons += 1;
+      map.set(key, current);
+    }
+    return [...map.values()].sort((a, b) => b.qty - a.qty);
+  };
+
+  const destinationStats = sumMap(
+    activeRows,
+    row => String(row.destination || '-').toUpperCase(),
+    row => row.isi_karton
+  ).slice(0, 10);
+
+  const articleStats = sumMap(
+    activeRows,
+    row => String(row.artikel || '-').toUpperCase(),
+    row => row.isi_karton
+  ).slice(0, 10);
+
+  const sizeStats = sumMap(
+    activeRows,
+    row => String(row.size || '-').toUpperCase(),
+    row => row.isi_karton
+  ).slice(0, 15);
+
+  const dailyMap = new Map();
+  for (const row of activeRows) {
+    const date = clean(row.tanggal) || todayISO();
+    const current = dailyMap.get(date) || { date, qty: 0, cartons: 0 };
+    current.qty += Number(row.isi_karton) || 0;
+    current.cartons += 1;
+    dailyMap.set(date, current);
+  }
+  const dailyStats = [...dailyMap.values()].sort((a, b) => String(a.date).localeCompare(String(b.date))).slice(-14);
+
+  const planning = Object.values(planningValue || {}).map(item => {
+    const row = item || {};
+    const so = String(row.so_number || '').toUpperCase().trim();
+    const target = Number(row.target_qty) || 0;
+    const actual = bySO.get(so)?.qty || 0;
+    return {
+      so_number: so,
+      artikel: String(row.artikel || '-').toUpperCase(),
+      target_qty: target,
+      actual_qty: actual,
+      shortage: Math.max(target - actual, 0),
+      percentage: target ? Math.min(Math.round((actual / target) * 100), 100) : 0,
+      status: target && actual >= target ? 'COMPLETED' : 'IN_PROGRESS'
+    };
+  }).sort((a, b) => b.target_qty - a.target_qty);
+
+  const totalTarget = planning.reduce((sum, row) => sum + row.target_qty, 0);
+  const totalActual = planning.reduce((sum, row) => sum + row.actual_qty, 0);
+  const completedPlanning = planning.filter(row => row.status === 'COMPLETED').length;
+
+  const recentSO = allSO
     .sort((a, b) => Number(b.lastUpdate || 0) - Number(a.lastUpdate || 0))
     .slice(0, 20);
 
@@ -265,15 +337,30 @@ async function handleDashboard(env, request) {
     data: {
       summary: {
         totalSO: bySO.size,
-        totalKarton: recentSO.length ? [...bySO.values()].reduce((sum, row) => sum + row.karton, 0) : 0,
-        totalQty: [...bySO.values()].reduce((sum, row) => sum + row.qty, 0)
+        totalKarton: activeRows.length,
+        totalQty: activeRows.reduce((sum, row) => sum + (Number(row.isi_karton) || 0), 0),
+        totalArticles: new Set(activeRows.map(row => row.artikel).filter(Boolean)).size,
+        totalDestinations: new Set(activeRows.map(row => String(row.destination || '-').toUpperCase())).size,
+        avgQtyPerSO: bySO.size ? Math.round(activeRows.reduce((sum, row) => sum + (Number(row.isi_karton) || 0), 0) / bySO.size) : 0
       },
       recentSO,
+      destinationStats,
+      articleStats,
+      sizeStats,
+      dailyStats,
+      planning: {
+        rows: planning.slice(0, 12),
+        totalTarget,
+        totalActual,
+        totalShortage: Math.max(totalTarget - totalActual, 0),
+        completionRate: totalTarget ? Math.min(Math.round((totalActual / totalTarget) * 100), 100) : 0,
+        completed: completedPlanning,
+        total: planning.length
+      },
       updatedAt: new Date().toISOString()
     }
   });
 }
-
 async function handleInbound(env, request, segments) {
   const method = request.method;
   const rawId = segments.slice(1).join('/');
