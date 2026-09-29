@@ -111,7 +111,11 @@ function extractCartonNumber(value) {
       normalized === 'cartonnumber' ||
       normalized === 'cartonid' ||
       normalized === 'ctnno' ||
-      normalized === 'ctnnumber'
+      normalized === 'ctnnumber' ||
+      normalized.includes('nomorkarton') ||
+      normalized.includes('nokarton') ||
+      normalized.includes('cartonno') ||
+      normalized.includes('cartonnumber')
     ) {
       if (val !== undefined && val !== null && String(val).trim() !== '') return val;
     }
