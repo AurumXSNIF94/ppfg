@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  ArrowUpRight, BarChart3, Box, Boxes, CalendarDays,
+  BarChart3, Box, Boxes,
   Globe2, Package, RefreshCw, Target, TrendingUp, Warehouse
 } from 'lucide-react';
 import { api } from '../services/api';
@@ -15,22 +15,6 @@ function formatDate(value) {
   return Number.isNaN(date.getTime())
     ? String(value)
     : date.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
-}
-
-function shortDate(value) {
-  if (!value) return '-';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? String(value)
-    : date.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
-}
-
-function shortDateTime(value) {
-  if (!value) return '-';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? String(value)
-    : date.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
 }
 
 function percent(value) {
@@ -261,5 +245,4 @@ function StatLine({label,value}) {
   return <div className="flex justify-between gap-5 min-w-[150px]"><span className="text-textMuted font-bold">{label}</span><span className="font-black">{value}</span></div>;
 }
 
-function LoadingState(){return <div className="py-14 text-center text-xs font-bold text-textMuted">Loading analytics...</div>;}
 function EmptyState({text='No inbound data available.'}){return <div className="py-10 text-center text-xs font-bold text-textMuted">{text}</div>;}
