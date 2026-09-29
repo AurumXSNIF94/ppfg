@@ -12,15 +12,15 @@ export default function StockList(){
  const remove=async(id)=>{if(!confirm('Delete this carton record?'))return;try{await api.inbound.remove(id);await load()}catch(e){alert(e.message)}};
  return <div className="max-w-7xl mx-auto flex flex-col h-full relative">
   <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-   <div><h2 className="text-xl font-extrabold">Stock Inbound Records</h2><p className="text-xs font-semibold text-textMuted mt-0.5">CRUD diproses oleh backend API.</p></div>
-   <div className="relative w-full md:w-80"><Search className="absolute left-3.5 top-3 h-4 w-4 text-textMuted"/><input className="w-full pl-10 pr-4 py-2.5 border border-borderLight rounded-xl text-xs font-bold bg-surface uppercase" placeholder="Search..." value={searchTerm} onChange={e=>setSearchTerm(e.target.value)}/></div>
+   <div><h2 className="text-xl font-extrabold">Stock Inbound Records</h2><p className="text-xs font-semibold text-textMuted mt-0.5">CRUD operations are processed by the backend API.</p></div>
+   <div className="relative w-full md:w-80"><Search className="absolute left-3.5 top-3 h-4 w-4 text-textMuted"/><input className="w-full pl-10 pr-4 py-2.5 border border-borderLight rounded-xl text-xs font-bold bg-surface uppercase" placeholder="Search SO, Article, Carton No., Size..." value={searchTerm} onChange={e=>setSearchTerm(e.target.value)}/></div>
   </div>
 
   <div className="flex-1 bg-surface border border-borderLight rounded-2xl shadow-sm overflow-hidden flex flex-col">
    <div className="overflow-auto flex-1">
     <table className="w-full min-w-[900px] text-left">
      <thead><tr className="bg-bgBody border-b border-borderLight text-[11px] font-extrabold text-textMuted uppercase">
-      <th className="py-4 px-6">Date</th><th className="py-4 px-6">SO</th><th className="py-4 px-6">Type</th><th className="py-4 px-6">Article</th><th className="py-4 px-6">Size</th><th className="py-4 px-6">Carton</th><th className="py-4 px-6">Qty</th><th className="py-4 px-6">Destination</th><th className="py-4 px-6 text-right">Actions</th>
+      <th className="py-4 px-6">Date</th><th className="py-4 px-6">SO</th><th className="py-4 px-6">Type</th><th className="py-4 px-6">Article</th><th className="py-4 px-6">Size</th><th className="py-4 px-6">Carton No.</th><th className="py-4 px-6">Qty Pcs</th><th className="py-4 px-6">Destination</th><th className="py-4 px-6 text-right">Actions</th>
      </tr></thead>
      <tbody className="divide-y divide-borderLight text-xs font-semibold">
       {loading?<tr><td colSpan="9" className="text-center py-12">Loading...</td></tr>:filtered.map(d=><tr key={d.id} className="hover:bg-indigo-50/40">
