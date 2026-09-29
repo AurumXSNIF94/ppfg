@@ -126,6 +126,7 @@ export default function Dashboard() {
             ))}
             {!planning.rows.length && <EmptyState text="No planning targets available."/>}
           </div>
+          </div>
         </Panel>
       </section>
 
