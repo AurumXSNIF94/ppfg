@@ -1,16 +1,74 @@
-# React + Vite
+# PPFG WMS — Fullstack Admin
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+PPFG WMS is a React/Vite warehouse admin application with a dedicated Express API backend.
 
-Currently, two official plugins are available:
+## Architecture
+- Frontend: React 19 + Vite + Tailwind CSS
+- Authentication: Firebase Authentication (Google)
+- Database: Firebase Realtime Database
+- Backend: Node.js + Express + Firebase Admin SDK
+- Integration: Google Apps Script through the backend proxy
+- API auth: Firebase ID token (Authorization: Bearer <token>)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Project structure
+```
+backend/
+  src/middleware/
+  src/routes/
+  src/firebase.js
+  src/server.js
+  .env.example
+src/
+  components/
+  config/
+  pages/
+  services/api.js
+package.json
+```
 
-## React Compiler
+## Run locally
+### Frontend
+```bash
+npm install
+npm run dev
+```
+Set VITE_API_URL=http://localhost:4000 in .env.local when the API is not on the same origin.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Backend
+```bash
+cd backend
+npm install
+```
+Copy .env.example to .env and configure Firebase Admin credentials, then run:
+```bash
+npm run dev
+```
+The API runs on http://localhost:4000.
 
-## Expanding the ESLint configuration
+### Firebase Admin credentials
+Use a service-account JSON file with GOOGLE_APPLICATION_CREDENTIALS, or set FIREBASE_SERVICE_ACCOUNT_JSON. Also set FIREBASE_DATABASE_URL and CLIENT_ORIGIN.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Never commit service-account JSON or .env files.
+
+## API
+All application API routes require a valid Firebase ID token.
+- GET /api/health
+- GET /api/dashboard
+- GET /api/inbound
+- POST /api/inbound
+- PATCH /api/inbound/:id
+- DELETE /api/inbound/:id
+- GET /api/export-history
+- GET /api/gas?...
+
+## Current admin modules
+- Google authentication
+- Dashboard / inbound analytics
+- Inbound entry with dynamic carton rows
+- Inbound stock CRUD
+- Export history
+- WMS Google Sheets sync monitoring
+- Responsive sidebar and mobile navigation
+
+## Deployment
+Deploy frontend and backend separately. Set CLIENT_ORIGIN to the deployed frontend origin and VITE_API_URL to the public backend URL. Never expose Firebase Admin credentials to the browser.
