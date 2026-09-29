@@ -345,18 +345,6 @@ async function handleDashboard(env, request) {
     row => row.isi_karton
   ).slice(0, 15);
 
-  const lastUpdateStats = allSO
-    .filter(row => Number(row.lastUpdate || 0) > 0)
-    .sort((a, b) => Number(a.lastUpdate || 0) - Number(b.lastUpdate || 0))
-    .slice(-14)
-    .map(row => ({
-      so: row.so,
-      qty: Number(row.qty) || 0,
-      cartons: Number(row.karton) || 0,
-      lastUpdate: row.lastUpdate
-    }));
-
-
   const planning = Object.values(planningValue || {}).map(item => {
     const row = item || {};
     const so = String(row.so_number || '').toUpperCase().trim();
@@ -396,7 +384,6 @@ async function handleDashboard(env, request) {
       destinationStats,
       articleStats,
       sizeStats,
-      lastUpdateStats,
       planning: {
         rows: planning.slice(0, 12),
         totalTarget,
