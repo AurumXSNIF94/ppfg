@@ -30,7 +30,7 @@ export default function Dashboard() {
     <div className="max-w-7xl mx-auto space-y-6">
       <section className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
         <div><div className="flex items-center gap-2 text-primary mb-2"><Activity size={17}/><span className="text-[10px] uppercase tracking-[0.18em] font-black">Realtime Warehouse</span></div><h2 className="text-2xl font-black tracking-tight">Overview Inbound</h2><p className="text-xs font-semibold text-textMuted mt-1">Data diproses melalui PPFG WMS API.</p></div>
-        <div className="flex items-center gap-2 text-[10px] font-bold text-textMuted"><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"/>LIVE · {data ? formatDate(data.updatedAt) : 'connecting'}</div>
+        <div className={`flex items-center gap-2 text-[10px] font-bold ${error ? 'text-red-600' : 'text-textMuted'}`}><span className={`w-2 h-2 rounded-full ${error ? 'bg-red-500' : data ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500 animate-pulse'}`}/>{error ? 'API ERROR' : data ? `LIVE · ${formatDate(data.updatedAt)}` : 'CONNECTING'}</div>
       </section>
       {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-bold text-red-700">{error}</div>}
       <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
