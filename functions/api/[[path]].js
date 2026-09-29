@@ -17,14 +17,14 @@ function getToken(request) {
 }
 
 function dbUrl(env) {
-  return String(env.FIREBASE_DATABASE_URL || '').replace(/\\/$/, '');
+  return String(env.FIREBASE_DATABASE_URL || '').replace(/\/$/, '');
 }
 
 async function firebaseRequest(env, request, path, init = {}) {
   const token = getToken(request);
   if (!token) throw new HttpError(401, 'Missing Bearer token.');
 
-  const url = new URL(`${dbUrl(env)}/${path.replace(/^\\//, '')}.json`);
+  const url = new URL(`${dbUrl(env)}/${path.replace(/^\//, '')}.json`);
   url.searchParams.set('auth', token);
 
   const response = await fetch(url, {
@@ -377,7 +377,7 @@ async function handleHistory(env, request) {
 
 async function handleGas(env, request) {
   if (request.method !== 'GET') return json({ success: false, message: 'Method not allowed.' }, 405);
-  const base = String(env.GAS_API_URL || '').replace(/\\/$/, '');
+  const base = String(env.GAS_API_URL || '').replace(/\/$/, '');
   if (!base) return json({ success: false, message: 'GAS_API_URL is not configured.' }, 503);
 
   const url = new URL(base);
