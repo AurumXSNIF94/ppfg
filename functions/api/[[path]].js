@@ -57,8 +57,12 @@ async function firebaseRequest(env, request, path, init = {}) {
 }
 
 function todayISO() {
-  const d = new Date();
-  return d.toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date());
 }
 
 function clean(value) {
@@ -95,7 +99,7 @@ function isNestedSO(node) {
 function normalizeCartonNumber(value) {
   const raw = String(value ?? '').trim();
   if (!raw) return undefined;
-  const match = raw.match(/(?:KARTON|CARTON|CTN)[ _-]*(\d+)/i) || raw.match(/^#?\\s*(\d+)$/) || raw.match(/\d+/);
+  const match = raw.match(/(?:KARTON|CARTON|CTN)[ _-]*(\d+)/i) || raw.match(/^#?\s*(\d+)$/) || raw.match(/\d+/);
   return match ? match[1] : raw.replace(/^#/, '').trim();
 }
 
