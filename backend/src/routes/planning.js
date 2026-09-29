@@ -4,6 +4,10 @@ import { adminDb } from '../firebase.js';
 
 const router = Router();
 
+function normalizeSO(value) {
+  return String(value || '').toUpperCase().trim().replace(/^SO_/, '');
+}
+
 function isNestedSO(node) {
   return !!node && typeof node === 'object' && (
     Object.prototype.hasOwnProperty.call(node, 'informasi_master') ||
@@ -25,7 +29,7 @@ async function buildInboundMap() {
         map[so] = (map[so] || 0) + (Number(item?.isi_karton || item?.qty || 0) || 0);
       }
     } else {
-      const so = String(node?.so_number || soKey.replace(/^SO_/, '')).toUpperCase().trim();
+      const so = normalizeSO(node?.so_number || soKey);
       if (!so) continue;
       map[so] = (map[so] || 0) + (Number(node?.isi_karton || node?.qty || 0) || 0);
     }
@@ -41,7 +45,7 @@ router.get('/', async (_req, res, next) => {
     ]);
     const value = planningSnapshot.val() || {};
     const rows = Object.entries(value).map(([id, item]) => {
-      const so = String(item?.so_number || '').toUpperCase().trim();
+      const so = normalizeSO(item?.so_number || soKey);
       const target = Number(item?.target_qty) || 0;
       const actual = inboundMap[so] || 0;
       return {
@@ -58,7 +62,7 @@ router.get('/', async (_req, res, next) => {
 
 router.post('/', async (req,res,next)=>{
   try{
-    const so=String(req.body.so_number||'').toUpperCase().trim();
+    const so=normalizeSO(req.body.so_number);
     const artikel=String(req.body.artikel||'').toUpperCase().trim();
     const target=Number(req.body.target_qty)||0;
     if(!so||!artikel||target<=0)return res.status(400).json({success:false,message:'SO, article and target quantity are required.'});
