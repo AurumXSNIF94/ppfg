@@ -1,6 +1,6 @@
 import { auth } from '../config/firebase';
 
-const API_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+const API_URL = (import.meta.env.VITE_API_URL || '').replace(/\\/$/, '');
 
 async function request(path, options = {}) {
   const user = auth.currentUser;
@@ -23,7 +23,11 @@ async function request(path, options = {}) {
 }
 
 export const api = {
-  health: () => fetch(`${API_URL}/api/health`).then(r => r.json()),
+  health: () => fetch(`${API_URL}/api/health`, { cache: 'no-store' }).then(async (response) => {
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.message || `Health check failed (${response.status})`);
+    return payload;
+  }),
   dashboard: () => request('/api/dashboard'),
   inbound: {
     list: () => request('/api/inbound'),
@@ -39,7 +43,7 @@ export const api = {
   },
   export: {
     ready: () => request('/api/export/ready'),
-    execute: (so) => request(`/api/export/${encodeURIComponent(so)}/execute`, { method: 'POST' })
+    execute: (so) => request(`/api/export/execute/${encodeURIComponent(so)}`, { method: 'POST' })
   },
   exportHistory: () => request('/api/export-history'),
   gas: (params = {}) => {
