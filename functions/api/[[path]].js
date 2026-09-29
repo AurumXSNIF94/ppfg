@@ -56,7 +56,7 @@ async function firebaseRequest(env, request, path, init = {}) {
   return data;
 }
 
-function clean(value) {
+function todayISO() {\n  const d = new Date();\n  return d.toISOString().slice(0, 10);\n}\n\nfunction clean(value) {
   return typeof value === 'string' ? value.trim() : value;
 }
 
@@ -155,7 +155,7 @@ function normalizeStoredInbound(item = {}, context = {}) {
     size: clean(row.size ?? row.ukuran ?? row.Size),
     nomor_karton: normalizeCartonNumber(extractCartonNumber(row) ?? context.cartonKey),
     isi_karton: Number(row.isi_karton ?? row.qty ?? row.quantity ?? row.qty_pcs ?? row.jumlah ?? row.total_qty) || 0,
-    tanggal: clean(row.tanggal ?? master.tanggal),
+    tanggal: clean(row.tanggal ?? master.tanggal) || todayISO(),
     keterangan: clean(row.keterangan ?? master.keterangan) || '',
     status: clean(row.status ?? master.status) || 'INBOUND',
     timestamp_in: Number(row.timestamp_in ?? row.timestamp ?? row.created_at_ts ?? row.createdAt ?? row.created_at) || 0,
@@ -210,7 +210,7 @@ function aggregateInbound(value) {
       bySO.set(key, {
         so: key,
         artikel: row.artikel || '-',
-        destination: row.destination || '-',
+        destination: String(row.destination || '-').toUpperCase(),
         jenis: row.jenis || '-',
         karton: 0,
         qty: 0,
