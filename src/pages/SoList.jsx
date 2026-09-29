@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { FileSpreadsheet, RefreshCw, Search, X, Package, CalendarDays, Globe2, ClipboardList } from 'lucide-react';
 import { api } from '../services/api';
 
-function formatNumber(value){return Number(value||0).toLocaleString('id-ID');}
+function formatNumber(value){return Number(value||0).toLocaleString('en-US');}
 function formatDate(value){
   if(!value)return '-';
   const d=new Date(value);
