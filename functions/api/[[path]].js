@@ -70,7 +70,6 @@ function normalizeInbound(payload = {}) {
     nomor_karton: clean(payload.nomor_karton ?? payload.no_karton ?? payload.noKarton)?.toUpperCase(),
     isi_karton: Number(payload.isi_karton ?? payload.qty) || 0,
     destination: clean(payload.destination)?.toUpperCase(),
-    lokasi: clean(payload.lokasi)?.toUpperCase(),
     keterangan: clean(payload.keterangan) || '',
     status: clean(payload.status) || 'INBOUND'
   };
@@ -91,15 +90,15 @@ function isNestedSO(node) {
 function normalizeStoredInbound(item = {}, context = {}) {
   const row = item || {};
   const master = context.master || {};
+  const { lokasi, location, Location, track_lane, ...safeRow } = row;
   const rawSO = row.so_number ?? row.so ?? row.SO ?? row.soNumber ?? row.nomor_so
     ?? master.so_number ?? master.so ?? master.SO ?? context.soKey?.replace(/^SO_/, '');
 
   return {
-    ...row,
+    ...safeRow,
     so_number: clean(rawSO)?.toUpperCase(),
     artikel: clean(row.artikel ?? row.article ?? row.Article ?? row.style ?? row.style_code ?? master.artikel),
     destination: clean(row.destination ?? row.destinasi ?? row.Destination ?? row.dest ?? master.destination),
-    lokasi: clean(row.lokasi ?? row.location ?? row.Location ?? row.track_lane ?? master.lokasi ?? master.location ?? master.track_lane),
     jenis: clean(row.jenis ?? row.type ?? row.carton_type ?? master.jenis ?? master.type),
     size: clean(row.size ?? row.ukuran ?? row.Size),
     nomor_karton: clean(row.nomor_karton ?? row.no_karton ?? row.noKarton ?? row.carton_no ?? row.cartonNumber),
@@ -160,7 +159,6 @@ function aggregateInbound(value) {
         so: key,
         artikel: row.artikel || '-',
         destination: row.destination || '-',
-        lokasi: row.lokasi || '-',
         karton: 0,
         qty: 0,
         lastUpdate: row.lastUpdate || row.timestamp_in || 0
@@ -170,7 +168,6 @@ function aggregateInbound(value) {
     const current = bySO.get(key);
     current.artikel = current.artikel === '-' && row.artikel ? row.artikel : current.artikel;
     current.destination = current.destination === '-' && row.destination ? row.destination : current.destination;
-    current.lokasi = current.lokasi === '-' && row.lokasi ? row.lokasi : current.lokasi;
     if (!row._emptySO) {
       current.karton += 1;
       current.qty += Number(row.isi_karton) || 0;
@@ -237,8 +234,8 @@ async function handleInbound(env, request, segments) {
   if (method === 'POST' && !id) {
     const body = await request.json().catch(() => ({}));
     const base = normalizeInbound(body);
-    if (!base.so_number || !base.artikel || !base.destination || !base.lokasi) {
-      return json({ success: false, message: 'SO, article, destination and location are required.' }, 400);
+    if (!base.so_number || !base.artikel || !base.destination) {
+      return json({ success: false, message: 'SO, article and destination are required.' }, 400);
     }
 
     const cartons = Array.isArray(body.cartons) && body.cartons.length ? body.cartons : [base];
@@ -258,7 +255,6 @@ async function handleInbound(env, request, segments) {
         jenis: base.jenis,
         artikel: base.artikel,
         destination: base.destination,
-        lokasi: base.lokasi,
         keterangan: base.keterangan,
         status: base.status,
         terakhir_update: new Date(now).toISOString(),
@@ -280,7 +276,7 @@ async function handleInbound(env, request, segments) {
           user: body.user || 'WMS User'
         };
         updates[`stok_inbound_wh/${targetSOKey}/karton/${key}`] = item;
-        created.push({ id: `${targetSOKey}/${key}`, so_number: base.so_number, artikel: base.artikel, destination: base.destination, lokasi: base.lokasi, ...item });
+        created.push({ id: `${targetSOKey}/${key}`, so_number: base.so_number, artikel: base.artikel, destination: base.destination, ...item });
       }
 
       await firebaseRequest(env, request, '', { method: 'PATCH', body: JSON.stringify(updates) });
@@ -303,7 +299,7 @@ async function handleInbound(env, request, segments) {
           timestamp_in: now,
           user: body.user || 'WMS User'
         };
-        created.push({ id: `${targetSOKey}/${key}`, so_number: base.so_number, artikel: base.artikel, destination: base.destination, lokasi: base.lokasi, ...cartonMap[key] });
+        created.push({ id: `${targetSOKey}/${key}`, so_number: base.so_number, artikel: base.artikel, destination: base.destination, ...cartonMap[key] });
       }
 
       const node = {
@@ -313,7 +309,6 @@ async function handleInbound(env, request, segments) {
           jenis: base.jenis,
           artikel: base.artikel,
           destination: base.destination,
-          lokasi: base.lokasi,
           keterangan: base.keterangan,
           status: base.status,
           terakhir_update: new Date(now).toISOString(),
@@ -344,7 +339,7 @@ async function handleInbound(env, request, segments) {
       const updates = {};
 
       for (const [key, value] of Object.entries(patch)) {
-        if (['so_number', 'jenis', 'artikel', 'destination', 'lokasi', 'keterangan', 'tanggal', 'status'].includes(key)) {
+        if (['so_number', 'jenis', 'artikel', 'destination', 'keterangan', 'tanggal', 'status'].includes(key)) {
           updates[`stok_inbound_wh/${encodeURIComponent(topKey)}/informasi_master/${key}`] = value;
         }
       }
@@ -397,7 +392,6 @@ async function handleSO(env, request) {
     so_number: row.so,
     artikel: row.artikel,
     destination: row.destination,
-    lokasi: row.lokasi,
     jenis: '-',
     total_cartons: row.karton,
     total_pcs: row.qty,
@@ -405,6 +399,83 @@ async function handleSO(env, request) {
     last_update: row.lastUpdate
   }));
   return json({ success: true, data });
+}
+
+async function handleSODetail(env, request, soParam) {
+  const so = String(soParam || '').toUpperCase().replace(/^SO_/, '').trim();
+  if (!so) return json({ success: false, message: 'SO number is required.' }, 400);
+
+  const value = await getInbound(env, request);
+  const topKey = soKey(so);
+  const parent = await firebaseRequest(env, request, `stok_inbound_wh/${encodeURIComponent(topKey)}`);
+
+  if (isNestedSO(parent)) {
+    const master = parent.informasi_master || {};
+    const cartons = Object.entries(parent.karton || {}).map(([id, item]) => ({
+      id: `${topKey}/${id}`,
+      ...normalizeStoredInbound(item, { soKey: topKey, master })
+    }));
+
+    const sizes = [...new Set(cartons.map(item => item.size).filter(Boolean))];
+    const totalPcs = cartons.reduce((sum, item) => sum + (Number(item.isi_karton) || 0), 0);
+
+    return json({
+      success: true,
+      data: {
+        so_number: so,
+        master: {
+          tanggal: clean(master.tanggal),
+          jenis: clean(master.jenis) || '-',
+          artikel: clean(master.artikel) || '-',
+          destination: clean(master.destination) || '-',
+          keterangan: clean(master.keterangan) || '',
+          status: clean(master.status) || 'INBOUND',
+          terakhir_update: master.terakhir_update || master.timestamp_in || null
+        },
+        summary: {
+          total_cartons: cartons.length,
+          total_pcs: totalPcs,
+          sizes
+        },
+        cartons
+      }
+    });
+  }
+
+  const rows = flattenInbound(value).filter(row =>
+    !row._emptySO &&
+    String(row.so_number || '').toUpperCase().replace(/^SO_/, '').trim() === so
+  );
+
+  if (!rows.length) {
+    return json({ success: false, message: `SO ${so} not found.` }, 404);
+  }
+
+  const sizes = [...new Set(rows.map(item => item.size).filter(Boolean))];
+  const totalPcs = rows.reduce((sum, item) => sum + (Number(item.isi_karton) || 0), 0);
+  const first = rows[0];
+
+  return json({
+    success: true,
+    data: {
+      so_number: so,
+      master: {
+        tanggal: first.tanggal || '-',
+        jenis: first.jenis || '-',
+        artikel: first.artikel || '-',
+        destination: first.destination || '-',
+        keterangan: first.keterangan || '',
+        status: first.status || 'INBOUND',
+        terakhir_update: first.lastUpdate || first.timestamp_in || null
+      },
+      summary: {
+        total_cartons: rows.length,
+        total_pcs: totalPcs,
+        sizes
+      },
+      cartons: rows
+    }
+  });
 }
 
 async function handlePlanning(env, request, segments) {
@@ -485,7 +556,6 @@ async function handleExport(env, request, segments) {
           so,
           artikel: row.artikel || '-',
           destination: row.destination || '-',
-          lokasi: row.lokasi || '-',
           items: []
         };
       }
@@ -521,7 +591,6 @@ async function handleExport(env, request, segments) {
         so_number: so,
         artikel: master.artikel || '-',
         destination: master.destination || '-',
-        lokasi: master.lokasi || '-',
         total_cartons: items.length,
         total_pcs: totalPcs,
         export_date: new Date().toISOString().slice(0, 10),
@@ -544,7 +613,6 @@ async function handleExport(env, request, segments) {
       so_number: so,
       artikel: first.artikel || '-',
       destination: first.destination || '-',
-      lokasi: first.lokasi || '-',
       total_cartons: rows.length,
       total_pcs: totalPcs,
       export_date: new Date().toISOString().slice(0, 10),
@@ -617,6 +685,7 @@ export async function onRequest(context) {
 
     if (route === 'dashboard') return handleDashboard(env, request);
     if (route === 'inbound' || route.startsWith('inbound/')) return handleInbound(env, request, path);
+    if (route.startsWith('so/') && path.length >= 2 && request.method === 'GET') return handleSODetail(env, request, path[1]);
     if (route === 'so') return handleSO(env, request);
     if (route === 'planning' || route.startsWith('planning/')) return handlePlanning(env, request, path);
     if (route === 'export' || route.startsWith('export/')) return handleExport(env, request, path);
