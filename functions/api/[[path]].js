@@ -87,6 +87,47 @@ function isNestedSO(node) {
   );
 }
 
+function extractCartonNumber(value) {
+  if (!value || typeof value !== 'object') return undefined;
+  const preferred = [
+    'nomor_karton','no_karton','noKarton','nomorKarton','no_carton','noCarton',
+    'carton_no','cartonNo','carton_number','cartonNumber','carton_id','cartonId',
+    'ctn_no','ctnNo','ctn_number','ctnNumber','No. Karton','No Karton',
+    'NOMOR KARTON','NO KARTON'
+  ];
+  for (const key of preferred) {
+    if (value[key] !== undefined && value[key] !== null && String(value[key]).trim() !== '') {
+      return value[key];
+    }
+  }
+
+  const entries = Object.entries(value);
+  for (const [key, val] of entries) {
+    const normalized = String(key).toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (
+      normalized === 'nomorkarton' ||
+      normalized === 'nokarton' ||
+      normalized === 'cartonno' ||
+      normalized === 'cartonnumber' ||
+      normalized === 'cartonid' ||
+      normalized === 'ctnno' ||
+      normalized === 'ctnnumber'
+    ) {
+      if (val !== undefined && val !== null && String(val).trim() !== '') return val;
+    }
+  }
+
+  // Some legacy records store the carton number one level deeper.
+  for (const [, val] of entries) {
+    if (val && typeof val === 'object' && !Array.isArray(val)) {
+      const nested = extractCartonNumber(val);
+      if (nested !== undefined) return nested;
+    }
+  }
+
+  return undefined;
+}
+
 function normalizeStoredInbound(item = {}, context = {}) {
   const row = item || {};
   const master = context.master || {};
@@ -101,22 +142,7 @@ function normalizeStoredInbound(item = {}, context = {}) {
     destination: clean(row.destination ?? row.destinasi ?? row.Destination ?? row.dest ?? master.destination),
     jenis: clean(row.jenis ?? row.type ?? row.carton_type ?? master.jenis ?? master.type),
     size: clean(row.size ?? row.ukuran ?? row.Size),
-    nomor_karton: clean(
-      row.nomor_karton ??
-      row.no_karton ??
-      row.noKarton ??
-      row.nomorKarton ??
-      row.no_carton ??
-      row.noCarton ??
-      row.carton_no ??
-      row.cartonNo ??
-      row.carton_number ??
-      row.cartonNumber ??
-      row['No. Karton'] ??
-      row['No Karton'] ??
-      row['NOMOR KARTON'] ??
-      row['NO KARTON']
-    ),
+    nomor_karton: clean(extractCartonNumber(row)),
     isi_karton: Number(row.isi_karton ?? row.qty ?? row.quantity ?? row.qty_pcs ?? row.jumlah ?? row.total_qty) || 0,
     tanggal: clean(row.tanggal ?? master.tanggal),
     keterangan: clean(row.keterangan ?? master.keterangan) || '',
