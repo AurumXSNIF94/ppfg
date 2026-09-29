@@ -4,3 +4,4 @@ compatibility_date = "2026-09-29"
 
 [vars]
 FIREBASE_DATABASE_URL = "https://ppfgwh-713a2-default-rtdb.asia-southeast1.firebasedatabase.app"
+GAS_API_URL = "https://script.google.com/macros/s/AKfycbxxkJTpL49H952n8zE7PePzWrufKdzDJJ15h9LqF21-141TguTw_BHrK8OQCJwtN1vKFA/exec"
