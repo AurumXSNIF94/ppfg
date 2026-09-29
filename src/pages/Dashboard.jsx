@@ -131,7 +131,7 @@ export default function Dashboard() {
                 {activity.map((row, index) => {
                   const x = activity.length === 1 ? 350 : (index / (activity.length - 1)) * 700;
                   const y = 190 - ((Number(row.qty) || 0) / maxActivityQty) * 150;
-                  return <g key={row.so}><circle cx={x} cy={y} r="4.5" className="fill-primary"/><text x={x} y="215" textAnchor="middle" className="fill-textMuted text-[9px] font-bold">{row.so}</text></g>;
+                  return <g key={row.so}><circle cx={x} cy={y} r="4.5" className="fill-primary"/><text x={x} y="215" textAnchor="middle" className="fill-textMuted text-[9px] font-bold">{shortDateTime(row.lastUpdate)}</text></g>;
                 })}
               </svg>
               <div className="flex justify-between text-[10px] font-bold text-textMuted">
