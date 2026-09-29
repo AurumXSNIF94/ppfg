@@ -7,7 +7,7 @@ export default function EntryForm() {
   const [tarikSo,setTarikSo]=useState('');
   const [tanggal,setTanggal]=useState(new Date().toISOString().split('T')[0]);
   const [soNumber,setSoNumber]=useState('');
-  const [jenis,setJenis]=useState('SOLID');
+ 
   const [artikel,setArtikel]=useState('');
   const [destination,setDestination]=useState('');
   const [keterangan,setKeterangan]=useState('');
@@ -29,7 +29,7 @@ export default function EntryForm() {
     }catch(e){setSyncStatus('❌ '+e.message)}
   };
 
-  const addRow=()=>setCartons([...cartons,{id:Date.now(),size:jenis==='MIX'?'-':'',noKarton:'',qty:''}]);
+  const addRow=()=>setCartons([...cartons,{id:Date.now(),size:'',noKarton:'',qty:''}]);
   const update=(id,field,value)=>setCartons(cartons.map(c=>c.id===id?{...c,[field]:value}:c));
 
   const save=async()=>{
@@ -41,7 +41,6 @@ export default function EntryForm() {
       await api.inbound.create({
         tanggal,
         so_number:soNumber,
-        jenis,
         artikel,
         destination,
         keterangan,
@@ -82,11 +81,6 @@ export default function EntryForm() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-        <Field label="Carton Type">
-          <select className="form-input" value={jenis} onChange={e=>{setJenis(e.target.value);setCartons(cartons.map(c=>({...c,size:e.target.value==='MIX'?'-':''})))}}>
-            <option>SOLID</option><option>MIX</option>
-          </select>
-        </Field>
         <Field label="Article / Style"><input className="form-input uppercase" value={artikel} onChange={e=>setArtikel(e.target.value.toUpperCase())}/></Field>
       </div>
 
@@ -96,7 +90,7 @@ export default function EntryForm() {
       <div className="bg-bgBody border border-dashed border-slate-300 p-6 rounded-xl mb-6">
         <h3 className="text-xs font-extrabold text-textMuted uppercase mb-4">Carton Details</h3>
         {cartons.map(c=><div key={c.id} className="flex gap-4 mb-3">
-          <input className={`form-input flex-1 uppercase ${jenis==='MIX'?'bg-slate-200':''}`} placeholder="Size" value={c.size} readOnly={jenis==='MIX'} onChange={e=>update(c.id,'size',e.target.value.toUpperCase())}/>
+          <input className="form-input flex-1 uppercase" placeholder="Size" value={c.size} readOnly={jenis==='MIX'} onChange={e=>update(c.id,'size',e.target.value.toUpperCase())}/>
           <input className="form-input flex-1 uppercase" placeholder="Carton No." value={c.noKarton} onChange={e=>update(c.id,'noKarton',e.target.value.toUpperCase())}/>
           <input type="number" className="form-input flex-1" placeholder="Qty Pcs" value={c.qty} onChange={e=>update(c.id,'qty',e.target.value)}/>
           {cartons.length>1&&<button onClick={()=>setCartons(cartons.filter(x=>x.id!==c.id))} className="bg-red-100 text-red-600 px-4 rounded-lg font-bold">✕</button>}
