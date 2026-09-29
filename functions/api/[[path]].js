@@ -87,6 +87,13 @@ function isNestedSO(node) {
   );
 }
 
+function normalizeCartonNumber(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return undefined;
+  const match = raw.match(/(?:KARTON|CARTON|CTN)[ _-]*(\\d+)/i) || raw.match(/^#?\\s*(\\d+)$/) || raw.match(/\\d+/);
+  return match ? match[1] : raw.replace(/^#/, '').trim();
+}
+
 function extractCartonNumber(value) {
   if (!value || typeof value !== 'object') return undefined;
   const preferred = [
@@ -143,10 +150,10 @@ function normalizeStoredInbound(item = {}, context = {}) {
     ...safeRow,
     so_number: clean(rawSO)?.toUpperCase(),
     artikel: clean(row.artikel ?? row.article ?? row.Article ?? row.style ?? row.style_code ?? master.artikel),
-    destination: clean(row.destination ?? row.destinasi ?? row.Destination ?? row.dest ?? master.destination),
+    destination: clean(row.destination ?? row.destinasi ?? row.Destination ?? row.dest ?? master.destination)?.toUpperCase(),
     jenis: clean(row.jenis ?? row.type ?? row.carton_type ?? master.jenis ?? master.type),
     size: clean(row.size ?? row.ukuran ?? row.Size),
-    nomor_karton: clean(extractCartonNumber(row) ?? context.cartonKey),
+    nomor_karton: normalizeCartonNumber(extractCartonNumber(row) ?? context.cartonKey),
     isi_karton: Number(row.isi_karton ?? row.qty ?? row.quantity ?? row.qty_pcs ?? row.jumlah ?? row.total_qty) || 0,
     tanggal: clean(row.tanggal ?? master.tanggal),
     keterangan: clean(row.keterangan ?? master.keterangan) || '',
