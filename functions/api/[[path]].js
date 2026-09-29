@@ -146,7 +146,7 @@ function normalizeStoredInbound(item = {}, context = {}) {
     destination: clean(row.destination ?? row.destinasi ?? row.Destination ?? row.dest ?? master.destination),
     jenis: clean(row.jenis ?? row.type ?? row.carton_type ?? master.jenis ?? master.type),
     size: clean(row.size ?? row.ukuran ?? row.Size),
-    nomor_karton: clean(extractCartonNumber(row)),
+    nomor_karton: clean(extractCartonNumber(row) ?? context.cartonKey),
     isi_karton: Number(row.isi_karton ?? row.qty ?? row.quantity ?? row.qty_pcs ?? row.jumlah ?? row.total_qty) || 0,
     tanggal: clean(row.tanggal ?? master.tanggal),
     keterangan: clean(row.keterangan ?? master.keterangan) || '',
@@ -169,7 +169,7 @@ function flattenInbound(value) {
           id: `${topKey}/${cartonKey}`,
           so_key: topKey,
           carton_key: cartonKey,
-          ...normalizeStoredInbound(carton, { soKey: topKey, master })
+          ...normalizeStoredInbound(carton, { soKey: topKey, master, cartonKey })
         });
       }
 
@@ -462,7 +462,8 @@ async function handleSODetail(env, request, soParam) {
     const master = parent.informasi_master || {};
     const cartons = Object.entries(parent.karton || {}).map(([id, item]) => ({
       id: `${topKey}/${id}`,
-      ...normalizeStoredInbound(item, { soKey: topKey, master })
+      ...normalizeStoredInbound(item, { soKey: topKey, master, cartonKey: id }),
+      carton_key: id
     }));
 
     const sizes = [...new Set(cartons.map(item => item.size).filter(Boolean))];
