@@ -89,8 +89,24 @@ async function getHistory(env, request) {
   return value && typeof value === 'object' ? value : {};
 }
 
+function normalizeStoredInbound(item = {}) {
+  const row = item || {};
+  return {
+    ...row,
+    so_number: clean(row.so_number ?? row.so ?? row.SO ?? row.soNumber ?? row.nomor_so),
+    artikel: clean(row.artikel ?? row.article ?? row.Article ?? row.style ?? row.style_code),
+    destination: clean(row.destination ?? row.destinasi ?? row.Destination ?? row.dest),
+    lokasi: clean(row.lokasi ?? row.location ?? row.Location ?? row.track_lane),
+    jenis: clean(row.jenis ?? row.type ?? row.carton_type),
+    size: clean(row.size ?? row.ukuran ?? row.Size),
+    nomor_karton: clean(row.nomor_karton ?? row.no_karton ?? row.noKarton ?? row.carton_no ?? row.cartonNumber),
+    isi_karton: Number(row.isi_karton ?? row.qty ?? row.quantity ?? row.qty_pcs ?? row.jumlah ?? row.total_qty) || 0,
+    timestamp_in: Number(row.timestamp_in ?? row.timestamp ?? row.created_at_ts ?? row.createdAt ?? row.created_at) || 0
+  };
+}
+
 function inboundRows(value) {
-  return Object.entries(value).map(([id, item]) => ({ id, ...(item || {}) }));
+  return Object.entries(value).map(([id, item]) => ({ id, ...normalizeStoredInbound(item) }));
 }
 
 async function handleDashboard(env, request) {
@@ -197,7 +213,7 @@ async function handleSO(env, request) {
   const map = {};
 
   for (const item of Object.values(value)) {
-    const row = item || {};
+    const row = normalizeStoredInbound(item);
     const so = String(row.so_number || 'UNKNOWN').toUpperCase().trim();
     if (!map[so]) {
       map[so] = {
@@ -236,8 +252,9 @@ async function handlePlanning(env, request, segments) {
 
     const inboundMap = {};
     for (const item of Object.values(inboundValue)) {
-      const so = String(item?.so_number || '').toUpperCase().trim();
-      if (so) inboundMap[so] = (inboundMap[so] || 0) + (Number(item?.isi_karton) || 0);
+      const row = normalizeStoredInbound(item);
+      const so = String(row.so_number || '').toUpperCase().trim();
+      if (so) inboundMap[so] = (inboundMap[so] || 0) + (Number(row.isi_karton) || 0);
     }
 
     const data = Object.entries(planningValue).map(([key, item]) => {
@@ -301,7 +318,7 @@ async function handleExport(env, request, segments) {
     const map = {};
 
     for (const [id, item] of Object.entries(value)) {
-      const row = item || {};
+      const row = normalizeStoredInbound(item);
       const so = String(row.so_number || 'UNKNOWN').toUpperCase().trim();
       if (!map[so]) {
         map[so] = {
@@ -329,8 +346,8 @@ async function handleExport(env, request, segments) {
     const so = decodeURIComponent(rawSo).toUpperCase().trim();
     const value = await getInbound(env, request);
     const items = Object.entries(value)
-      .filter(([, item]) => String(item?.so_number || '').toUpperCase().trim() === so)
-      .map(([id, item]) => ({ id, ...(item || {}) }));
+      .map(([id, item]) => ({ id, ...normalizeStoredInbound(item) }))
+      .filter(item => String(item.so_number || '').toUpperCase().trim() === so);
 
     if (!items.length) {
       return json({ success: false, message: 'No active inbound cartons found for this SO.' }, 404);
