@@ -140,6 +140,7 @@ export default function Dashboard() {
               </div>
             </div>
           ) : <EmptyState text="No last-update activity available."/>}
+        </Panel>
 
         <Panel title="Planning Performance" subtitle="Target vs actual inbound" icon={Target}>
           <div className="flex items-center gap-5 mb-5">
