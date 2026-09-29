@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { FieldValue } from 'firebase-admin/database';
+import { ServerValue } from 'firebase-admin/database';
 import { adminDb } from '../firebase.js';
 
 const router = Router();
@@ -50,7 +50,7 @@ router.post('/', async (req, res, next) => {
       const ref = adminDb.ref(ROOT).push();
       await ref.set({
         ...item,
-        timestamp_in: FieldValue.serverTimestamp(),
+        timestamp_in: ServerValue.TIMESTAMP,
         user: req.user.email || req.user.uid
       });
       created.push({ id: ref.key, ...item });
