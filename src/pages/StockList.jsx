@@ -38,7 +38,7 @@ export default function StockList(){
   {editingItem&&<div className="fixed inset-0 z-[100] bg-slate-950/40 backdrop-blur-sm flex items-center justify-center p-4">
    <div className="bg-surface rounded-2xl w-full max-w-2xl p-6 shadow-2xl">
     <div className="flex justify-between items-center mb-5"><h3 className="font-black">Edit Carton</h3><button onClick={()=>setEditingItem(null)}><X/></button></div>
-    <div className="grid grid-cols-2 gap-4">{['tanggal','so_number','artikel','size','nomor_karton','isi_karton','destination'].map(k=><label key={k} className="text-xs font-bold text-textMuted">{k}<input className="form-input mt-1" value={form[k]??''} onChange={e=>setForm({...form,[k]:e.target.value})}/></label>)}</div>
+    <div className="grid grid-cols-2 gap-4">{['tanggal','so_number','artikel','size','nomor_karton','isi_karton','destination'].map(k=><label key={k} className="text-xs font-bold text-textMuted">{k}<input className="form-input mt-1" readOnly={k==='so_number'} value={form[k]??''} onChange={e=>setForm({...form,[k]:e.target.value})}/></label>)}</div>
     <button onClick={save} className="btn-primary w-full mt-6">Save Changes</button>
    </div>
   </div>}
