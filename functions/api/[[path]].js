@@ -255,6 +255,20 @@ function aggregateInbound(value) {
   return { rows, bySO };
 }
 
+
+function summaryKey(value) {
+  const bytes = new TextEncoder().encode(String(value ?? ''));
+  return [...bytes].map(byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function summaryIncrement(delta) {
+  return { '.sv': { increment: Number(delta) || 0 } };
+}
+
+function activeRowsForSO(topKey, node) {
+  return flattenInbound({ [topKey]: node }).filter(row => !row._emptySO);
+}
+
 async function getInbound(env, request) {
   const value = await firebaseRequest(env, request, 'stok_inbound_wh');
   return value && typeof value === 'object' ? value : {};
