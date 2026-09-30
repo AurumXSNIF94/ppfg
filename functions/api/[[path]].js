@@ -583,7 +583,11 @@ async function handleSODetail(env, request, soParam) {
     });
   }
 
-  const rows = flattenInbound({ [topKey]: parent }).filter(row =>
+  // Fallback for legacy/flat records whose Firebase key is not SO_<number>.
+  // The SO number itself is the canonical identifier, so search active source rows
+  // when the direct nested node is not found.
+  const source = parent ? { [topKey]: parent } : await getInbound(env, request);
+  const rows = flattenInbound(source).filter(row =>
     !row._emptySO &&
     String(row.so_number || '').toUpperCase().replace(/^SO_/, '').trim() === so
   );
