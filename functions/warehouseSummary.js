@@ -131,6 +131,7 @@ export async function syncWarehouseSummary(firebaseRequest, env, request, before
   const beforeSO = aggregateSO(before);
   const afterSO = aggregateSO(after);
 
+  const currentSummary = await getWarehouseSummary(firebaseRequest, env, request);
   const updates = {};
   const setIncrement = (path, delta) => {
     if (delta) updates[path] = summaryIncrement(delta);
@@ -150,8 +151,14 @@ export async function syncWarehouseSummary(firebaseRequest, env, request, before
       updates[`warehouse_summary/by_so/${key}`] = null;
       continue;
     }
-    setIncrement(`warehouse_summary/by_so/${key}/qty`, item.deltaQty);
-    setIncrement(`warehouse_summary/by_so/${key}/karton`, item.deltaKarton);
+    const existingSO = currentSummary?.by_so?.[key];
+    if (existingSO) {
+      setIncrement(`warehouse_summary/by_so/${key}/qty`, item.deltaQty);
+      setIncrement(`warehouse_summary/by_so/${key}/karton`, item.deltaKarton);
+    } else {
+      updates[`warehouse_summary/by_so/${key}/qty`] = item.after.qty;
+      updates[`warehouse_summary/by_so/${key}/karton`] = item.after.karton;
+    }
     updates[`warehouse_summary/by_so/${key}/so_number`] = item.after.so_number;
     updates[`warehouse_summary/by_so/${key}/artikel`] = item.after.artikel;
     updates[`warehouse_summary/by_so/${key}/destination`] = item.after.destination;
@@ -174,8 +181,14 @@ export async function syncWarehouseSummary(firebaseRequest, env, request, before
         updates[`warehouse_summary/${groupName}/${key}`] = null;
         continue;
       }
-      setIncrement(`warehouse_summary/${groupName}/${key}/qty`, item.deltaQty);
-      setIncrement(`warehouse_summary/${groupName}/${key}/karton`, item.deltaKarton);
+      const existingDimension = currentSummary?.[groupName]?.[key];
+      if (existingDimension) {
+        setIncrement(`warehouse_summary/${groupName}/${key}/qty`, item.deltaQty);
+        setIncrement(`warehouse_summary/${groupName}/${key}/karton`, item.deltaKarton);
+      } else {
+        updates[`warehouse_summary/${groupName}/${key}/qty`] = item.after.qty;
+        updates[`warehouse_summary/${groupName}/${key}/karton`] = item.after.karton;
+      }
       updates[`warehouse_summary/${groupName}/${key}/name`] = item.name;
     }
   }
