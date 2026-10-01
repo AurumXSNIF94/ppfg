@@ -345,6 +345,11 @@ export const api = {
   exportHistory: () => request('/api/export-history'),
   gas: (params = {}) => {
     const query = new URLSearchParams(params).toString();
-    return request(`/api/gas${query ? `?${query}` : ''}`);
+    const action = String(params.action || '').toLowerCase();
+    if (action === 'start-sync' || action === 'stop-sync') {
+      if (isOffline()) return Promise.reject(new Error('WMS Auto Sync actions require an internet connection.'));
+      return networkRequest('/api/gas' + (query ? '?' + query : ''));
+    }
+    return request('/api/gas' + (query ? '?' + query : ''));
   }
 };
