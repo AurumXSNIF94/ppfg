@@ -68,6 +68,9 @@ export async function syncOfflineQueue() {
     } finally {
       syncing = false;
       emit();
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('ppfg:offline-sync-complete'));
+      }
     }
 
     return { synced, pending: await getPendingCount() };
