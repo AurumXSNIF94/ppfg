@@ -19,6 +19,33 @@ class HttpError extends Error {
   }
 }
 
+
+
+function offlineTransactionId(request) {
+  const value = request.headers.get('X-Offline-Transaction-Id') || '';
+  return value.trim().slice(0, 160);
+}
+
+async function getProcessedOfflineTransaction(env, request, id) {
+  if (!id) return null;
+  const value = await firebaseRequest(env, request, `offline_transactions/${encodeURIComponent(id)}`);
+  return value && typeof value === 'object' ? value : null;
+}
+
+async function saveProcessedOfflineTransaction(env, request, id, response) {
+  if (!id || !response?.ok) return;
+  const payload = await response.clone().json().catch(() => null);
+  if (!payload) return;
+  await firebaseRequest(env, request, `offline_transactions/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      status: response.status,
+      response: payload,
+      processed_at: new Date().toISOString()
+    })
+  });
+}
+
 function getToken(request) {
   const header = request.headers.get('Authorization') || '';
   return header.startsWith('Bearer ') ? header.slice(7).trim() : '';
@@ -803,7 +830,7 @@ export async function onRequest(context) {
         status: 204,
         headers: {
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+          'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Offline-Transaction-Id',
           'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS'
         }
       });
@@ -817,25 +844,34 @@ export async function onRequest(context) {
     if (!token) return json({ success: false, message: 'Missing Bearer token.' }, 401);
     if (!dbUrl(env)) return json({ success: false, message: 'FIREBASE_DATABASE_URL is not configured.' }, 500);
 
-    if (route === 'dashboard') return handleDashboard(env, request);
-    if (route === 'warehouse-summary' && request.method === 'GET') {
-      const summary = await ensureWarehouseSummary(env, request);
-      return json({ success: true, data: summary });
+    const offlineId = request.method === 'GET' ? '' : offlineTransactionId(request);
+    if (offlineId) {
+      const processed = await getProcessedOfflineTransaction(env, request, offlineId);
+      if (processed?.response) {
+        return json(processed.response, Number(processed.status) || 200);
+      }
     }
-    if (route === 'warehouse-summary/rebuild' && request.method === 'POST') {
+
+    let response;
+    if (route === 'dashboard') response = await handleDashboard(env, request);
+    else if (route === 'warehouse-summary' && request.method === 'GET') {
+      const summary = await ensureWarehouseSummary(env, request);
+      response = json({ success: true, data: summary });
+    } else if (route === 'warehouse-summary/rebuild' && request.method === 'POST') {
       const source = await getInbound(env, request);
       const summary = await rebuildWarehouseSummary(firebaseRequest, env, request, flattenInbound(source));
-      return json({ success: true, data: summary });
-    }
-    if (route === 'inbound' || route.startsWith('inbound/')) return handleInbound(env, request, path);
-    if (route.startsWith('so/') && path.length >= 2 && request.method === 'GET') return handleSODetail(env, request, path[1]);
-    if (route === 'so') return handleSO(env, request);
-    if (route === 'planning' || route.startsWith('planning/')) return handlePlanning(env, request, path);
-    if (route === 'export' || route.startsWith('export/')) return handleExport(env, request, path);
-    if (route === 'export-history') return handleHistory(env, request);
-    if (route === 'gas') return handleGas(env, request);
+      response = json({ success: true, data: summary });
+    } else if (route === 'inbound' || route.startsWith('inbound/')) response = await handleInbound(env, request, path);
+    else if (route.startsWith('so/') && path.length >= 2 && request.method === 'GET') response = await handleSODetail(env, request, path[1]);
+    else if (route === 'so') response = await handleSO(env, request);
+    else if (route === 'planning' || route.startsWith('planning/')) response = await handlePlanning(env, request, path);
+    else if (route === 'export' || route.startsWith('export/')) response = await handleExport(env, request, path);
+    else if (route === 'export-history') response = await handleHistory(env, request);
+    else if (route === 'gas') response = await handleGas(env, request);
+    else response = json({ success: false, message: 'API route not found.' }, 404);
 
-    return json({ success: false, message: 'API route not found.' }, 404);
+    if (offlineId) await saveProcessedOfflineTransaction(env, request, offlineId, response);
+    return response;
   } catch (error) {
     console.error('[PPFG API]', error);
     return json({
