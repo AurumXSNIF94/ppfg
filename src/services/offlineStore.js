@@ -1,5 +1,5 @@
 const DB_NAME = 'ppfg-wms-offline';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const CACHE_STORE = 'cache';
 const QUEUE_STORE = 'queue';
 
@@ -18,6 +18,7 @@ function openDB() {
       if (!db.objectStoreNames.contains(QUEUE_STORE)) {
         const store = db.createObjectStore(QUEUE_STORE, { keyPath: 'id' });
         store.createIndex('createdAt', 'createdAt');
+        store.createIndex('status', 'status');
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -63,7 +64,8 @@ export async function enqueueMutation(mutation) {
     id: mutation.id || crypto.randomUUID(),
     createdAt: mutation.createdAt || Date.now(),
     attempts: Number(mutation.attempts || 0),
-    status: 'PENDING'
+    status: mutation.status || 'PENDING',
+    lastError: mutation.lastError || null
   };
   await transaction(QUEUE_STORE, 'readwrite', store => store.put(item));
   return item;
