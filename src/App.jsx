@@ -28,6 +28,18 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (!user) return;
+    const sync = () => { void syncOfflineQueue(); };
+    sync();
+    window.addEventListener('online', sync);
+    const timer = window.setInterval(sync, 15000);
+    return () => {
+      window.removeEventListener('online', sync);
+      window.clearInterval(timer);
+    };
+  }, [user]);
+
   if (loadingAuth) {
     return <div className="flex h-screen items-center justify-center bg-bgBody text-textMuted font-bold">Loading WMS Application...</div>;
   }
