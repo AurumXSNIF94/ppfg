@@ -870,7 +870,7 @@ export async function onRequest(context) {
     else if (route === 'gas') response = await handleGas(env, request);
     else response = json({ success: false, message: 'API route not found.' }, 404);
 
-    if (offlineId) await saveProcessedOfflineTransaction(env, request, offlineId, response);
+    if (offlineId) {\n      try { await saveProcessedOfflineTransaction(env, request, offlineId, response); }\n      catch (idempotencyError) { console.error('[PPFG idempotency]', idempotencyError); }\n    }
     return response;
   } catch (error) {
     console.error('[PPFG API]', error);
