@@ -20,6 +20,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [syncVersion, setSyncVersion] = useState(0);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -41,6 +42,12 @@ export default function App() {
       window.clearInterval(timer);
     };
   }, [user]);
+
+  useEffect(() => {
+    const refresh = () => setSyncVersion(version => version + 1);
+    window.addEventListener('ppfg:offline-sync-complete', refresh);
+    return () => window.removeEventListener('ppfg:offline-sync-complete', refresh);
+  }, []);
 
   if (loadingAuth) {
     return <div className="flex h-screen items-center justify-center bg-bgBody text-textMuted font-bold">Loading WMS Application...</div>;
@@ -111,7 +118,7 @@ export default function App() {
         </header>
 
         <div className="flex-1 overflow-y-auto p-5 lg:p-8">
-          {pages[activeTab] || pages.dashboard}
+          <div key={activeTab + ':' + syncVersion} className="contents">{pages[activeTab] || pages.dashboard}</div>
         </div>
       </main>
     </div>
