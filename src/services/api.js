@@ -248,7 +248,8 @@ async function request(path, options = {}) {
     void syncOfflineQueue();
     return payload;
   } catch (error) {
-    // Treat network failures as offline, but do not hide normal HTTP validation/auth errors.
+    // Only queue genuine transport failures. HTTP 4xx/5xx responses are real
+    // server responses and must remain visible to the user.
     if (error instanceof TypeError || /Failed to fetch|NetworkError|Load failed|network/i.test(error.message || '')) {
       return optimisticMutation(path, method, jsonBody(options));
     }
