@@ -11,7 +11,7 @@ import SoList from './pages/SoList';
 import Planning from './pages/Planning';
 import ExportPage from './pages/Export';
 import ExportHistory from './pages/ExportHistory';
-import WmsSync from './pages/WmsSync';
+import WmsSync from './pages/WmsSync';\nimport OfflineStatus from './components/OfflineStatus';\nimport { syncOfflineQueue } from './services/offlineSync';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -71,7 +71,7 @@ export default function App() {
             <p className="hidden md:block text-[10px] font-semibold text-textMuted truncate mt-0.5">{subtitle}</p>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-3 shrink-0">\n            <OfflineStatus />
             <div className="hidden xl:flex items-center gap-2 w-64 h-10 rounded-xl border border-borderLight bg-bgBody px-3 text-textMuted">
               <Search size={15} />
               <span className="text-xs font-semibold">Quick search...</span>
