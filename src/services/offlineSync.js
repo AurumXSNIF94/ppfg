@@ -40,36 +40,48 @@ async function sendMutation(item) {
 }
 
 export async function syncOfflineQueue() {
-  if (syncing || typeof navigator !== 'undefined' && navigator.onLine === false || !auth.currentUser) {
-    return { synced: 0, pending: await getPendingCount() };
-  }
-
-  syncing = true;
-  let synced = 0;
-  try {
-    const queue = await listQueue();
-    for (const item of queue) {
-      if (navigator.onLine === false) break;
-      try {
-        await sendMutation(item);
-        await removeQueue(item.id);
-        synced += 1;
-      } catch (error) {
-        await updateQueue(item.id, {
-          attempts: Number(item.attempts || 0) + 1,
-          lastError: error.message,
-          lastAttemptAt: Date.now()
-        });
-        // Keep ordering: a failed transaction can affect the following one.
-        break;
-      }
+  const run = async () => {
+    if (syncing || (typeof navigator !== 'undefined' && navigator.onLine === false) || !auth.currentUser) {
+      return { synced: 0, pending: await getPendingCount() };
     }
-  } finally {
-    syncing = false;
-    emit();
+
+    syncing = true;
+    let synced = 0;
+    try {
+      const queue = await listQueue();
+      for (const item of queue) {
+        if (navigator.onLine === false) break;
+        try {
+          await sendMutation(item);
+          await removeQueue(item.id);
+          synced += 1;
+        } catch (error) {
+          await updateQueue(item.id, {
+            status: 'PENDING',
+            attempts: Number(item.attempts || 0) + 1,
+            lastError: error.message,
+            lastAttemptAt: Date.now()
+          });
+          break;
+        }
+      }
+    } finally {
+      syncing = false;
+      emit();
+    }
+
+    return { synced, pending: await getPendingCount() };
+  };
+
+  // Prevent two browser tabs from draining the same queue simultaneously.
+  if (navigator?.locks?.request) {
+    return navigator.locks.request('ppfg-wms-offline-sync', { ifAvailable: true }, async lock => {
+      if (!lock) return { synced: 0, pending: await getPendingCount() };
+      return run();
+    });
   }
 
-  return { synced, pending: await getPendingCount() };
+  return run();
 }
 
 export async function queueMutation(item) {
