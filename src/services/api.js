@@ -174,6 +174,32 @@ async function patchSOListCache(createdRows) {
   await setCache(key, { success: true, data: [...map.values()] });
 }
 
+function buildSODetailFromInbound(so, inboundPayload) {
+  const wanted = String(so || '').toUpperCase().replace(/^SO_/, '').trim();
+  const rows = (inboundPayload?.data || []).filter(row =>
+    String(row?.so_number || '').toUpperCase().replace(/^SO_/, '').trim() === wanted
+  );
+  if (!rows.length) return null;
+  const first = rows[0];
+  const cartons = rows.map(row => ({ ...row, so_number: wanted, destination: String(row.destination || '-').toUpperCase() }));
+  const sizes = [...new Set(cartons.map(row => row.size).filter(Boolean))];
+  const totalPcs = cartons.reduce((sum, row) => sum + (Number(row.isi_karton) || 0), 0);
+  return { success: true, data: {
+    so_number: wanted,
+    master: {
+      tanggal: first.tanggal || new Date().toISOString().slice(0, 10),
+      jenis: first.jenis || '-',
+      artikel: first.artikel || '-',
+      destination: String(first.destination || '-').toUpperCase(),
+      keterangan: first.keterangan || '',
+      status: first.status || 'INBOUND',
+      terakhir_update: first.lastUpdate || first.timestamp_in || null
+    },
+    summary: { total_cartons: cartons.length, total_pcs: totalPcs, sizes },
+    cartons
+  }};
+}
+
 async function patchSODetailCache(row) {
   const key = cacheKey(`/api/so/${encodeURIComponent(row.so_number)}`);
   const cached = await getCache(key);
@@ -257,6 +283,19 @@ async function request(path, options = {}) {
   }
 }
 
+export async function warmOfflineCache() {
+  const jobs = [
+    () => api.dashboard(),
+    () => api.inbound.list(),
+    () => api.so.list(),
+    () => api.planning.list(),
+    () => api.export.ready(),
+    () => api.exportHistory()
+  ];
+  const results = await Promise.allSettled(jobs.map(job => job()));
+  return { cached: results.filter(result => result.status === 'fulfilled').length, total: jobs.length };
+}
+
 export const api = {
   health: () => fetch(absoluteUrl('/api/health'), { cache: 'no-store' }).then(async response => {
     const payload = await response.json().catch(() => ({}));
@@ -264,6 +303,10 @@ export const api = {
     return payload;
   }),
   dashboard: () => request('/api/dashboard'),
+  warehouseSummary: {
+    get: () => request('/api/warehouse-summary'),
+    rebuild: () => request('/api/warehouse-summary/rebuild', { method: 'POST' })
+  },
   inbound: {
     list: () => request('/api/inbound'),
     create: payload => request('/api/inbound', { method: 'POST', body: JSON.stringify(payload) }),
@@ -272,7 +315,22 @@ export const api = {
   },
   so: {
     list: () => request('/api/so'),
-    detail: so => request(`/api/so/${encodeURIComponent(so)}`)
+    detail: async so => {
+      const path = '/api/so/' + encodeURIComponent(so);
+      try {
+        return await request(path);
+      } catch (error) {
+        if (isOffline()) {
+          const inbound = await getCache(cacheKey('/api/inbound'));
+          const derived = buildSODetailFromInbound(so, inbound);
+          if (derived) {
+            await setCache(cacheKey(path), derived).catch(() => {});
+            return derived;
+          }
+        }
+        throw error;
+      }
+    }
   },
   planning: {
     list: () => request('/api/planning'),
