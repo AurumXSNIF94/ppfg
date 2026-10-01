@@ -846,6 +846,31 @@ export async function onRequest(context) {
 
     const offlineId = request.method === 'GET' ? '' : offlineTransactionId(request);
     if (offlineId) {
+      const processed = await getProcessedOfflineTransaction(env, request, offlineId);
+      if (processed?.response) {
+        return json(processed.response, Number(processed.status) || 200);
+      }
+    }
+
+    let response;
+    if (route === 'dashboard') response = await handleDashboard(env, request);
+    else if (route === 'warehouse-summary' && request.method === 'GET') {
+      const summary = await ensureWarehouseSummary(env, request);
+      response = json({ success: true, data: summary });
+    } else if (route === 'warehouse-summary/rebuild' && request.method === 'POST') {
+      const source = await getInbound(env, request);
+      const summary = await rebuildWarehouseSummary(firebaseRequest, env, request, flattenInbound(source));
+      response = json({ success: true, data: summary });
+    } else if (route === 'inbound' || route.startsWith('inbound/')) response = await handleInbound(env, request, path);
+    else if (route.startsWith('so/') && path.length >= 2 && request.method === 'GET') response = await handleSODetail(env, request, path[1]);
+    else if (route === 'so') response = await handleSO(env, request);
+    else if (route === 'planning' || route.startsWith('planning/')) response = await handlePlanning(env, request, path);
+    else if (route === 'export' || route.startsWith('export/')) response = await handleExport(env, request, path);
+    else if (route === 'export-history') response = await handleHistory(env, request);
+    else if (route === 'gas') response = await handleGas(env, request);
+    else response = json({ success: false, message: 'API route not found.' }, 404);
+
+    if (offlineId) {
       try {
         await saveProcessedOfflineTransaction(env, request, offlineId, response);
       } catch (idempotencyError) {
