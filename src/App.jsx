@@ -14,6 +14,7 @@ import ExportHistory from './pages/ExportHistory';
 import WmsSync from './pages/WmsSync';
 import OfflineStatus from './components/OfflineStatus';
 import { syncOfflineQueue } from './services/offlineSync';
+import { warmOfflineCache } from './services/api';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -32,6 +33,7 @@ export default function App() {
     if (!user) return;
     const sync = () => { void syncOfflineQueue(); };
     sync();
+    void warmOfflineCache().catch(() => {});
     window.addEventListener('online', sync);
     const timer = window.setInterval(sync, 15000);
     return () => {
