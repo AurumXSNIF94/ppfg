@@ -41,6 +41,14 @@ async function optimisticMutation(path, method, body) {
   const id = crypto.randomUUID();
   const now = Date.now();
 
+  await enqueueMutation({
+    id,
+    url: absoluteUrl(path),
+    method,
+    body: body === undefined ? undefined : JSON.stringify(body),
+    headers: {}
+  });
+
   if (path === '/api/inbound' && method === 'POST') {
     const current = await getCache(cacheKey('/api/inbound')) || { success: true, data: [] };
     const payload = body || {};
