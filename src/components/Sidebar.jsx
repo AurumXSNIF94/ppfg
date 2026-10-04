@@ -3,7 +3,6 @@ import { signOut } from 'firebase/auth';
 import {
   Activity,
   Boxes,
-  ClipboardList,
   Download,
   FileSpreadsheet,
   History,
@@ -29,7 +28,6 @@ const menuGroups = [
       { id: 'entry', icon: Inbox, label: 'Entry Form' },
       { id: 'stock', icon: Package, label: 'Stock List' },
       { id: 'solist', icon: FileSpreadsheet, label: 'SO Master List' },
-      { id: 'planning', icon: ClipboardList, label: 'SO Planning' },
     ],
   },
   {
