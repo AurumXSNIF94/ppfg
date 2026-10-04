@@ -88,29 +88,6 @@ async function optimisticMutation(path, method, body) {
     }
   }
 
-  if (path === '/api/planning' && method === 'POST') {
-    const current = await getCache(cacheKey('/api/planning')) || { success: true, data: [] };
-    const item = {
-      ...(body || {}),
-      id: `offline/${id}`,
-      so_number: String(body?.so_number || '').toUpperCase(),
-      artikel: String(body?.artikel || '').toUpperCase(),
-      target_qty: Number(body?.target_qty) || 0,
-      created_at: new Date().toISOString(),
-      created_at_ts: now,
-      created_by: auth.currentUser?.displayName || 'WMS User'
-    };
-    await setCache(cacheKey('/api/planning'), { success: true, data: [...(current.data || []), item] });
-  }
-
-  if (path.startsWith('/api/planning/') && method === 'DELETE') {
-    const current = await getCache(cacheKey('/api/planning'));
-    if (current?.data) {
-      const idPart = decodeURIComponent(path.slice('/api/planning/'.length));
-      await setCache(cacheKey('/api/planning'), { ...current, data: current.data.filter(row => row.id !== idPart) });
-    }
-  }
-
   if (path === '/api/export' || path === '/api/export/ready') {
     // Export queue is read-only; execution is handled below.
   }
@@ -288,7 +265,6 @@ export async function warmOfflineCache() {
     () => api.dashboard(),
     () => api.inbound.list(),
     () => api.so.list(),
-    () => api.planning.list(),
     () => api.export.ready(),
     () => api.exportHistory()
   ];
@@ -331,12 +307,6 @@ export const api = {
         throw error;
       }
     }
-  },
-  planning: {
-    list: () => request('/api/planning'),
-    create: payload => request('/api/planning', { method: 'POST', body: JSON.stringify(payload) }),
-    remove: id => request(`/api/planning/${encodeURIComponent(id)}`, { method: 'DELETE' }),
-    pullFromSheets: so => request(`/api/gas?so=${encodeURIComponent(so)}`)
   },
   export: {
     ready: () => request('/api/export/ready'),
