@@ -72,24 +72,6 @@ router.get('/', async (_req, res, next) => {
       return [...map.values()].sort((a, b) => b.qty - a.qty);
     };
 
-    const planningSnapshot = await adminDb.ref('so_planning').once('value');
-    const planningValue = planningSnapshot.val() || {};
-    const planningRows = Object.values(planningValue).map(item => {
-      const so = String(item?.so_number || '').toUpperCase().trim();
-      const target = Number(item?.target_qty) || 0;
-      const actual = bySO.get(so)?.qty || 0;
-      return {
-        so_number: so, artikel: String(item?.artikel || '-').toUpperCase(),
-        target_qty: target, actual_qty: actual,
-        shortage: Math.max(target - actual, 0),
-        percentage: target ? Math.min(Math.round((actual / target) * 100), 100) : 0,
-        status: target && actual >= target ? 'COMPLETED' : 'IN_PROGRESS'
-      };
-    }).sort((a,b) => b.target_qty - a.target_qty);
-
-    const totalTarget = planningRows.reduce((s,r)=>s+r.target_qty,0);
-    const totalActual = planningRows.reduce((s,r)=>s+r.actual_qty,0);
-
     const lastUpdateStats = allSO
       .filter(row => Number(row.lastUpdate || 0) > 0)
       .sort((a,b) => Number(b.lastUpdate || 0) - Number(a.lastUpdate || 0))
@@ -113,14 +95,6 @@ router.get('/', async (_req, res, next) => {
         articleStats: sumMap(r=>r.artikel).slice(0,10),
         sizeStats: sumMap(r=>r.size).slice(0,15),
         lastUpdateStats,
-        planning: {
-          rows: planningRows.slice(0,12),
-          totalTarget, totalActual,
-          totalShortage: Math.max(totalTarget-totalActual,0),
-          completionRate: totalTarget ? Math.min(Math.round((totalActual/totalTarget)*100),100) : 0,
-          completed: planningRows.filter(r=>r.status==='COMPLETED').length,
-          total: planningRows.length
-        },
         updatedAt: new Date().toISOString()
       }
     });
