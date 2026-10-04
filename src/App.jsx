@@ -8,7 +8,6 @@ import Dashboard from './pages/Dashboard';
 import EntryForm from './pages/EntryForm';
 import StockList from './pages/StockList';
 import SoList from './pages/SoList';
-import Planning from './pages/Planning';
 import ExportPage from './pages/Export';
 import ExportHistory from './pages/ExportHistory';
 import WmsSync from './pages/WmsSync';
@@ -63,7 +62,6 @@ export default function App() {
     entry: <EntryForm />,
     stock: <StockList />,
     solist: <SoList />,
-    planning: <Planning />,
     export: <ExportPage />,
     exporthistory: <ExportHistory />,
     wmssync: <WmsSync />,
@@ -74,7 +72,6 @@ export default function App() {
     entry: ['Entry Form', 'Register inbound warehouse data'],
     stock: ['Stock List', 'Search and manage inbound cartons'],
     solist: ['SO Master List', 'Sales order and inbound master data'],
-    planning: ['SO Planning', 'Plan and monitor warehouse workload'],
     export: ['Export & Outbound', 'Outbound and export operations'],
     exporthistory: ['Export History', 'Historical outbound activity'],
     wmssync: ['WMS Auto Sync', 'Google Sheets → Firebase synchronization'],
