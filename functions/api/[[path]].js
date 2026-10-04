@@ -260,11 +260,6 @@ function normalizeSO(value) {
   return String(value || '').toUpperCase().trim().replace(/^SO_/, '');
 }
 
-async function getPlanning(env, request) {
-  const value = await firebaseRequest(env, request, 'so_planning');
-  return value && typeof value === 'object' ? value : {};
-}
-
 async function getHistory(env, request) {
   const value = await firebaseRequest(env, request, 'export_history');
   return value && typeof value === 'object' ? value : {};
@@ -288,13 +283,6 @@ function summaryRows(summary, group, limit = 20) {
 
 async function handleDashboard(env, request) {
   const summary = await ensureWarehouseSummary(env, request);
-  let planningValue = {};
-  try {
-    planningValue = await getPlanning(env, request);
-  } catch (error) {
-    console.warn('[PPFG Dashboard] Planning read skipped:', error?.message || error);
-  }
-
   const bySO = Object.values(summary.by_so || {});
   const activeCartons = Number(summary.meta?.totalKarton) || 0;
   const totalQty = Number(summary.meta?.totalQty) || 0;
@@ -304,26 +292,6 @@ async function handleDashboard(env, request) {
   const planningActualBySO = new Map(
     bySO.map(row => [normalizeSO(row.so_number), Number(row.qty) || 0])
   );
-
-  const planning = Object.values(planningValue || {}).map(item => {
-    const row = item || {};
-    const so = normalizeSO(row.so_number);
-    const target = Number(row.target_qty) || 0;
-    const actual = planningActualBySO.get(so) || 0;
-    return {
-      so_number: so,
-      artikel: String(row.artikel || '-').toUpperCase(),
-      target_qty: target,
-      actual_qty: actual,
-      shortage: Math.max(target - actual, 0),
-      percentage: target ? Math.min(Math.round((actual / target) * 100), 100) : 0,
-      status: target && actual >= target ? 'COMPLETED' : 'IN_PROGRESS'
-    };
-  }).sort((a, b) => b.target_qty - a.target_qty);
-
-  const totalTarget = planning.reduce((sum, row) => sum + row.target_qty, 0);
-  const totalActual = planning.reduce((sum, row) => sum + row.actual_qty, 0);
-  const completedPlanning = planning.filter(row => row.status === 'COMPLETED').length;
 
   const recentSO = bySO
     .map(row => ({
@@ -354,15 +322,6 @@ async function handleDashboard(env, request) {
       destinationStats,
       articleStats,
       sizeStats,
-      planning: {
-        rows: planning.slice(0, 12),
-        totalTarget,
-        totalActual,
-        totalShortage: Math.max(totalTarget - totalActual, 0),
-        completionRate: totalTarget ? Math.min(Math.round((totalActual / totalTarget) * 100), 100) : 0,
-        completed: completedPlanning,
-        total: planning.length
-      },
       updatedAt: new Date().toISOString()
     }
   });
@@ -650,71 +609,6 @@ async function handleSODetail(env, request, soParam) {
   });
 }
 
-async function handlePlanning(env, request, segments) {
-  const id = segments[1];
-
-  if (request.method === 'GET' && !id) {
-    const planningValue = await getPlanning(env, request);
-    const summary = await ensureWarehouseSummary(env, request);
-    const actualBySO = new Map(
-      Object.values(summary.by_so || {}).map(row => [normalizeSO(row.so_number), Number(row.qty) || 0])
-    );
-
-    const data = Object.entries(planningValue).map(([key, item]) => {
-      const row = item || {};
-      const so = normalizeSO(row.so_number);
-      const target = Number(row.target_qty) || 0;
-      const actual = actualBySO.get(so) || 0;
-      return {
-        id: key,
-        ...row,
-        so_number: so,
-        target_qty: target,
-        actual_qty: actual,
-        shortage: Math.max(target - actual, 0),
-        percentage: target ? Math.min(Math.round((actual / target) * 100), 100) : 0,
-        status: target && actual >= target ? 'COMPLETED' : 'IN_PROGRESS'
-      };
-    });
-
-    data.sort((a, b) => Number(b.created_at_ts || 0) - Number(a.created_at_ts || 0));
-    return json({ success: true, data });
-  }
-
-  if (request.method === 'POST' && !id) {
-    const body = await request.json().catch(() => ({}));
-    const so = normalizeSO(body.so_number);
-    const artikel = String(body.artikel || '').toUpperCase().trim();
-    const target = Number(body.target_qty) || 0;
-    if (!so || !artikel || target <= 0) {
-      return json({ success: false, message: 'SO, article and target quantity are required.' }, 400);
-    }
-
-    const item = {
-      so_number: so,
-      artikel,
-      target_qty: target,
-      created_at: new Date().toISOString().slice(0, 10),
-      created_at_ts: Date.now(),
-      created_by: 'WMS User'
-    };
-    const key = await firebaseRequest(env, request, 'so_planning', {
-      method: 'POST',
-      body: JSON.stringify(item)
-    });
-    return json({ success: true, data: { id: key?.name, ...item } }, 201);
-  }
-
-  if (request.method === 'DELETE' && id) {
-    const current = await firebaseRequest(env, request, `so_planning/${encodeURIComponent(id)}`);
-    if (!current) return json({ success: false, message: 'Planning target not found.' }, 404);
-    await firebaseRequest(env, request, `so_planning/${encodeURIComponent(id)}`, { method: 'DELETE' });
-    return json({ success: true, id });
-  }
-
-  return json({ success: false, message: 'Planning route not found.' }, 404);
-}
-
 async function handleExport(env, request, segments) {
   if (request.method === 'GET' && segments[1] === 'ready') {
     const summary = await ensureWarehouseSummary(env, request);
@@ -864,7 +758,6 @@ export async function onRequest(context) {
     } else if (route === 'inbound' || route.startsWith('inbound/')) response = await handleInbound(env, request, path);
     else if (route.startsWith('so/') && path.length >= 2 && request.method === 'GET') response = await handleSODetail(env, request, path[1]);
     else if (route === 'so') response = await handleSO(env, request);
-    else if (route === 'planning' || route.startsWith('planning/')) response = await handlePlanning(env, request, path);
     else if (route === 'export' || route.startsWith('export/')) response = await handleExport(env, request, path);
     else if (route === 'export-history') response = await handleHistory(env, request);
     else if (route === 'gas') response = await handleGas(env, request);
