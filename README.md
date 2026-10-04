@@ -1,111 +1,129 @@
-# PPFG WMS — Fullstack Admin
+# PPFG WMS — Fullstack Warehouse Management System
 
-PPFG WMS is a React/Vite warehouse admin application with a dedicated Express API backend.
+A fullstack **Warehouse Management System (WMS)** built around inbound and finished-goods warehouse administration.
+
+The project combines a React frontend, Express API, Firebase authentication/database, and Google Apps Script integration into a single operational workflow.
+
+## Project Goal
+
+The objective is to move warehouse administration from fragmented manual processes toward a centralized application where users can monitor, record, and manage warehouse data through a structured interface.
 
 ## Architecture
-- Frontend: React 19 + Vite + Tailwind CSS
-- Authentication: Firebase Authentication (Google)
-- Database: Firebase Realtime Database
-- Backend: Node.js + Express + Firebase Admin SDK
-- Integration: Google Apps Script through the backend proxy
-- API auth: Firebase ID token (Authorization: Bearer <token>)
 
-## Project structure
+```
+React + Vite Frontend
+        │
+        │ Firebase ID Token
+        ▼
+Express API / Cloudflare Pages Function
+        │
+        ├── Firebase Realtime Database
+        │
+        └── Google Apps Script / Sheets
+```
+
+## Core Modules
+
+- Google Authentication
+- Dashboard and inbound analytics
+- Inbound entry
+- Dynamic carton-row input
+- Inbound stock CRUD
+- Export / history monitoring
+- WMS Google Sheets synchronization
+- Responsive sidebar and mobile navigation
+- API authentication using Firebase ID tokens
+
+## Technology Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React 19 + Vite |
+| UI | Tailwind CSS |
+| Charts | Chart.js + react-chartjs-2 |
+| Routing | React Router |
+| Authentication | Firebase Authentication |
+| Database | Firebase Realtime Database |
+| Backend | Node.js + Express |
+| Admin SDK | Firebase Admin SDK |
+| Integration | Google Apps Script |
+| Deployment | Cloudflare Pages / Docker |
+
+## Repository Structure
+
 ```
 backend/
-  src/middleware/
-  src/routes/
-  src/firebase.js
-  src/server.js
-  .env.example
+├── src/
+│   ├── middleware/
+│   ├── routes/
+│   ├── firebase.js
+│   └── server.js
+└── .env.example
+
+functions/
 src/
-  components/
-  config/
-  pages/
-  services/api.js
-package.json
+├── components/
+├── config/
+├── pages/
+└── services/api.js
+
+Dockerfile
+wrangler.toml
 ```
 
-## Run locally
+## Security Approach
+
+- Firebase ID tokens are used for authenticated API requests.
+- Firebase Admin credentials stay on the server side.
+- Environment files and service-account credentials are excluded from source control.
+- The production architecture can serve frontend and API from the same origin.
+
+## Local Development
+
 ### Frontend
+
 ```bash
 npm install
 npm run dev
 ```
-Set VITE_API_URL=http://localhost:4000 in .env.local when the API is not on the same origin.
 
 ### Backend
+
 ```bash
 cd backend
 npm install
-```
-Copy .env.example to .env and configure Firebase Admin credentials, then run:
-```bash
 npm run dev
 ```
-The API runs on http://localhost:4000.
 
-### Firebase Admin credentials
-Use a service-account JSON file with GOOGLE_APPLICATION_CREDENTIALS, or set FIREBASE_SERVICE_ACCOUNT_JSON. Also set FIREBASE_DATABASE_URL and CLIENT_ORIGIN.
+For local development, the Vite configuration proxies `/api` requests to the backend.
 
-Never commit service-account JSON or .env files.
+## Production Options
 
-## API
-All application API routes require a valid Firebase ID token.
-- GET /api/health
-- GET /api/dashboard
-- GET /api/inbound
-- POST /api/inbound
-- PATCH /api/inbound/:id
-- DELETE /api/inbound/:id
-- GET /api/export-history
-- GET /api/gas?...
+The repository includes configurations for:
 
-## Current admin modules
-- Google authentication
-- Dashboard / inbound analytics
-- Inbound entry with dynamic carton rows
-- Inbound stock CRUD
-- Export history
-- WMS Google Sheets sync monitoring
-- Responsive sidebar and mobile navigation
+- Single-container deployment with Docker
+- Cloudflare Pages Functions
+- Separate frontend/backend deployment
 
-## Deployment
-Deploy frontend and backend separately. Set CLIENT_ORIGIN to the deployed frontend origin and VITE_API_URL to the public backend URL. Never expose Firebase Admin credentials to the browser.
+## Portfolio Value
 
+This project demonstrates the ability to translate warehouse requirements into a working information system across:
 
-## Single-container production
+- Warehouse administration
+- Inventory data
+- Finished Goods workflows
+- Authentication
+- API design
+- Database integration
+- External spreadsheet integration
+- Responsive operational interfaces
 
-The included `Dockerfile` builds the Vite frontend and serves it from the Express backend. This avoids the browser calling `localhost` in production. Configure Firebase Admin credentials and `FIREBASE_DATABASE_URL`, then run `docker build -t ppfg-wms .` and `docker run --env-file backend/.env -p 4000:4000 ppfg-wms`. Open the deployed host; the same origin serves both the admin UI and `/api/*`.
+## Related Projects
 
-For local development, run the backend on port 4000 and the Vite frontend on port 5173. `vite.config.js` proxies `/api` to the backend, so `VITE_API_URL` can remain empty.
+- [Gudang Warna — Inventory & Warehouse Operations](https://github.com/AurumXSNIF94/gudang-warna)
+- [FinishGoodWH — Finished Goods / Carton Tracker](https://github.com/AurumXSNIF94/FinishGoodWH)
 
+## Author
 
-## Cloudflare Pages production setup
-
-Production uses the Pages Function at `/api/*`, so the frontend and API stay on the same origin:
-`https://ppfgwh.pages.dev/api/...`.
-
-Cloudflare Pages detects the root `functions/` directory automatically when the project is deployed from the connected Git repository. The current API uses the Firebase Realtime Database REST API with the signed-in user's Firebase ID token, so no Firebase service-account JSON is placed in the browser or Git repository. Firebase documents that ID tokens can authenticate REST requests and that database Security Rules still control access.
-
-In Cloudflare Pages:
-1. Open **Workers & Pages → ppfgwh → Settings → Variables and Secrets**.
-2. Add production variable `FIREBASE_DATABASE_URL` with:
-   `https://ppfgwh-713a2-default-rtdb.asia-southeast1.firebasedatabase.app`
-3. Add `GAS_API_URL` if WMS Auto Sync / Google Sheets is used.
-4. Trigger a new deployment after saving the variables.
-5. Verify `/api/health` returns JSON with `status: "ok"`.
-
-In Firebase Authentication:
-- Add `ppfgwh.pages.dev` to **Authentication → Settings → Authorized domains** so Google sign-in is allowed from the production site.
-
-In Firebase Realtime Database:
-- The rules must allow the authenticated Firebase user to read/write the WMS nodes used by the API. The Pages Function forwards the user's Firebase ID token to the REST API, so database rules are enforced by Firebase.
-- Do not put a Firebase service-account private key in Vite frontend environment variables or Git.
-
-For local development, the existing Express backend remains available:
-- frontend: `npm run dev`
-- API: `npm run dev:api`
-- Vite proxies `/api/*` to `http://localhost:4000`.
-
-If Cloudflare deployment logs show a Function error, inspect **Workers & Pages → ppfgwh → Logs** for the Pages Function request.
+**Masfiyal Illah**  
+Inventory Control • ERP • Production Planning • Warehouse Operations
