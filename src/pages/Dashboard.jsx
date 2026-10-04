@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   BarChart3, Box, Boxes,
-  Globe2, Package, RefreshCw, Target, TrendingUp, Warehouse
+  Globe2, Package, RefreshCw, TrendingUp, Warehouse
 } from 'lucide-react';
 import { api } from '../services/api';
 
@@ -49,7 +49,6 @@ export default function Dashboard() {
   const destinations = data?.destinationStats || [];
   const articles = data?.articleStats || [];
   const sizes = data?.sizeStats || [];
-  const planning = data?.planning || { rows: [], totalTarget: 0, totalActual: 0, totalShortage: 0, completionRate: 0, completed: 0, total: 0 };
 
   const maxSOQty = Math.max(...rows.slice(0, 10).map(row => Number(row.qty) || 0), 1);
   const maxDestinationQty = Math.max(...destinations.slice(0, 6).map(row => Number(row.qty) || 0), 1);
@@ -66,7 +65,7 @@ export default function Dashboard() {
           </div>
           <h2 className="text-2xl font-black tracking-tight">Warehouse & Inventory Analytics</h2>
           <p className="text-xs font-semibold text-textMuted mt-1">
-            Inbound volume, inventory flow, destination mix and planning performance.
+            Inbound volume, inventory flow, destination mix and warehouse activity.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -89,45 +88,6 @@ export default function Dashboard() {
         <MetricCard icon={BarChart3} label="Articles" value={formatNumber(summary.totalArticles)}/>
         <MetricCard icon={Globe2} label="Destinations" value={formatNumber(summary.totalDestinations)}/>
         <MetricCard icon={TrendingUp} label="Avg Qty / SO" value={formatNumber(summary.avgQtyPerSO)} suffix="pcs"/>
-      </section>
-
-      <section className="grid grid-cols-1 gap-5">
-        <Panel title="Planning Performance" subtitle="Target vs actual inbound" icon={Target}>
-          <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6 items-stretch">
-            <div className="rounded-2xl border border-borderLight bg-bgBody/40 p-5 flex flex-col items-center justify-center">
-              <div className="relative w-32 h-32 rounded-full" style={{background:`conic-gradient(var(--color-primary) ${percent(planning.completionRate)}%, #E2E8F0 0)`}}>
-                <div className="absolute inset-3 rounded-full bg-surface flex flex-col items-center justify-center shadow-sm">
-                  <span className="text-2xl font-black">{percent(planning.completionRate)}%</span>
-                  <span className="text-[8px] uppercase tracking-wider font-black text-textMuted">Complete</span>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3 w-full mt-5">
-                <MiniStat label="Target" value={formatNumber(planning.totalTarget)} suffix="pcs"/>
-                <MiniStat label="Actual" value={formatNumber(planning.totalActual)} suffix="pcs"/>
-                <MiniStat label="Shortage" value={formatNumber(planning.totalShortage)} suffix="pcs"/>
-                <MiniStat label="Completed" value={`${planning.completed}/${planning.total}`} />
-              </div>
-            </div>
-            <div className="space-y-3 max-h-[300px] overflow-auto pr-1">
-            {planning.rows.slice(0, 7).map(row => (
-              <div key={row.so_number} className="rounded-xl border border-borderLight p-3">
-                <div className="flex justify-between gap-3 text-[10px] font-black">
-                  <span className="truncate">SO {row.so_number}</span>
-                  <span>{row.percentage}%</span>
-                </div>
-                <div className="h-2 rounded-full bg-bgBody overflow-hidden mt-2">
-                  <div className="h-full rounded-full bg-primary" style={{width:`${percent(row.percentage)}%`}}/>
-                </div>
-                <div className="flex justify-between mt-2 text-[9px] font-bold text-textMuted">
-                  <span>{formatNumber(row.actual_qty)} / {formatNumber(row.target_qty)} pcs</span>
-                  <span>{row.status.replace('_',' ')}</span>
-                </div>
-              </div>
-            ))}
-            {!planning.rows.length && <EmptyState text="No planning targets available."/>}
-          </div>
-          </div>
-        </Panel>
       </section>
 
       <section className="grid grid-cols-1 xl:grid-cols-2 gap-5">
